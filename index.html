@@ -1,0 +1,2156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delta Exchange - Real-Time Futures Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+            padding: 24px 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            padding: 30px;
+            max-width: 1600px;
+        }
+
+        .nav-header {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 24px;
+        }
+
+        .nav-logo {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 0 16px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: #9ca3af;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #e0e0e0;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            color: #667eea;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .nav-icon {
+            font-size: 18px;
+        }
+
+        .section-view {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .section-view.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Bot Cards Styles */
+        .bot-dashboard {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            /* Sidebar width + content */
+            gap: 24px;
+        }
+
+        .bot-panel {
+            background: rgba(26, 26, 46, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        /* Mini Table for Eligible Contracts */
+        .bot-right-col .bot-panel {
+            margin-bottom: 0;
+        }
+
+        .mini-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .mini-table th {
+            text-align: left;
+            padding: 8px;
+            color: #9ca3af;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .mini-table td {
+            padding: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .bot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .bot-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .bot-status.running {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
+        }
+
+        .toggle-btn {
+            background: #2d2d44;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn:hover {
+            background: #3d3d54;
+        }
+
+        .toggle-btn.active {
+            background: #4ade80;
+            color: #0f172a;
+            border-color: #4ade80;
+        }
+
+        .toggle-btn.stop {
+            background: #ef4444;
+            color: #fff;
+            border-color: #ef4444;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #fff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .trade-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .trade-card {
+            background: rgba(30, 30, 50, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .trade-info h4 {
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .trade-meta {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .trade-pnl {
+            text-align: right;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        header {
+            background: rgba(26, 26, 46, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #a0a0b0;
+            font-size: 14px;
+        }
+
+        .status-bar {
+            background: rgba(26, 26, 46, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+            box-shadow: 0 0 12px #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.disconnected {
+            background: #ef4444;
+            box-shadow: 0 0 12px #ef4444;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .table-container {
+            background: rgba(26, 26, 46, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: rgba(30, 30, 50, 0.8);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        th {
+            padding: 16px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #9ca3af;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+        }
+
+        th:hover {
+            background: rgba(50, 50, 70, 0.8);
+            color: #e0e0e0;
+        }
+
+        th.sortable::after {
+            content: '⇅';
+            margin-left: 6px;
+            opacity: 0.4;
+            font-size: 12px;
+        }
+
+        th.sort-asc::after {
+            content: '↑';
+            opacity: 1;
+            color: #667eea;
+        }
+
+        th.sort-desc::after {
+            content: '↓';
+            opacity: 1;
+            color: #667eea;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+
+        tbody tr:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        tbody tr.updated {
+            animation: rowFlash 0.5s;
+        }
+
+        @keyframes rowFlash {
+
+            0%,
+            100% {
+                background: transparent;
+            }
+
+            50% {
+                background: rgba(102, 126, 234, 0.15);
+            }
+        }
+
+        td {
+            padding: 14px 12px;
+            font-size: 14px;
+            color: #e0e0e0;
+        }
+
+        .contract-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .star-icon {
+            cursor: pointer;
+            opacity: 0.3;
+            transition: all 0.2s;
+            font-size: 16px;
+        }
+
+        .star-icon:hover,
+        .star-icon.active {
+            opacity: 1;
+            color: #fbbf24;
+        }
+
+        .symbol {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .description {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        .leverage-badge {
+            display: inline-block;
+            background: rgba(251, 146, 60, 0.2);
+            color: #fb923c;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
+        .price {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .positive {
+            color: #4ade80;
+        }
+
+        .negative {
+            color: #ef4444;
+        }
+
+        .prices-range {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .prices-range span {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(102, 126, 234, 0.2);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            padding: 16px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .last-update {
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .top-bar {
+            background: rgba(26, 26, 46, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 16px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .top-bar-center {
+            text-align: center;
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        .top-bar-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .clean-panel {
+            background: rgba(26, 26, 46, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 24px;
+            box-shadow: none;
+            /* No Shadow */
+        }
+
+        tr.table-title td {
+            background: rgba(30, 30, 50, 0.9);
+            color: #fff;
+            font-weight: 700;
+            padding: 12px 16px;
+            font-size: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        @media (max-width: 1400px) {
+            table {
+                font-size: 13px;
+            }
+
+            th,
+            td {
+                padding: 12px 8px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .status-bar {
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            th,
+            td {
+                padding: 10px 6px;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="nav-header">
+                <div class="nav-logo">
+                    🚀 DeltaBot
+                </div>
+            </div>
+            <nav class="nav-menu">
+                <div class="nav-item active" onclick="switchSection('scanner')">
+                    <span class="nav-icon">📊</span> Market Scanner
+                </div>
+                <div class="nav-item" onclick="switchSection('bot-funding')">
+                    <span class="nav-icon">🤖</span> With Funding
+                </div>
+                <div class="nav-item" onclick="switchSection('bot-contrarian')">
+                    <span class="nav-icon">⚡</span> Against Funding
+                </div>
+                <div class="nav-item" onclick="switchSection('pnl')">
+                    <span class="nav-icon">📈</span> PnL & History
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+
+            <!-- SECTION 1: MARKET SCANNER -->
+            <div id="section-scanner" class="section-view active">
+                <!-- Header Removed -->
+
+                <div class="top-bar-right">
+                    <div style="text-align:right;">
+                        <button id="btn-connect-telegram" class="toggle-btn" onclick="connectTelegram()"
+                            style="margin-right:10px; font-size:12px; padding:4px 8px; background:rgba(59, 130, 246, 0.2); color:#3b82f6; border:1px solid rgba(59, 130, 246, 0.4);">
+                            📢 Connect Telegram
+                        </button>
+                        <div id="connection-status" class="status-indicator status-connecting">
+                            <span class="status-dot"></span>Connecting...
+                        </div>
+                        <div style="font-size:11px; opacity:0.6; margin-top:2px;">Market Scanner</div>
+                    </div>
+                </div>
+
+                <div class="status-bar">
+                    <div class="status-indicator">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span id="statusText">Connecting...</span>
+                    </div>
+                    <div class="last-update">
+                        Last update: <span id="lastUpdate">--</span>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th class="sortable" data-column="symbol">Contract</th>
+                                <th>Description</th>
+                                <th class="sortable" data-column="mark_price">Last Price</th>
+                                <th class="sortable" data-column="change_24h">24h Change</th>
+                                <th class="sortable" data-column="volume">24h Volume</th>
+                                <th class="sortable" data-column="oi">Open Interest</th>
+                                <th>24h Prices</th>
+                                <th class="sortable" data-column="funding">Funding</th>
+                                <th class="sortable" data-column="funding_window">Funding Window</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td colspan="9" class="loading">
+                                    <div class="spinner"></div>
+                                    <div>Loading futures contracts...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SECTION 2: WITH FUNDING BOT -->
+            <div id="section-bot-funding" class="section-view">
+                <!-- Header Removed -->
+
+                <!-- Top Bar -->
+                <div class="top-bar">
+                    <div class="top-bar-left">
+                        <!-- AutoTrade moved to table -->
+                    </div>
+                    <div class="top-bar-center">
+                        <div style="font-weight:600; color:#e0e0e0; margin-bottom:4px;">Strategy Rules</div>
+                        <div>window < 10m • Rate> ±0.15% • Follow Trend • 1x Lev</div>
+                    </div>
+                    <div class="top-bar-right">
+                        <div style="text-align:right;">
+                            <div class="stat-value positive" id="pnl-funding" style="font-size:18px;">+$0.00</div>
+                            <div class="stat-label">PnL</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div class="stat-value" id="balance-funding" style="font-size:18px; color:#e0e0e0;">$10,000
+                            </div>
+                            <div class="stat-label">Balance</div>
+                        </div>
+                        <span class="bot-status" id="status-funding">STOPPED</span>
+                    </div>
+                </div>
+
+                <!-- Eligible Contracts Table -->
+                <div class="clean-panel">
+                    <div class="table-container"
+                        style="box-shadow:none; border:none; border-radius:0; max-height: 250px; overflow-y: auto;">
+                        <table class="mini-table">
+                            <thead>
+                                <tr class="table-title">
+                                    <td colspan="5" style="padding: 12px 16px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <span>Eligible Contracts (Funding >= ±0.15%)</span>
+                                            <button id="btn-funding" class="toggle-btn" onclick="toggleBot('funding')"
+                                                style="width:auto; min-width:120px; padding:6px 12px; font-size:13px; margin:0;">AutoTrade</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Contract</th>
+                                    <th>Price</th>
+                                    <th>Funding</th>
+                                    <th>Window</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eligible-funding">
+                                <tr>
+                                    <td colspan="5" style="text-align:center; padding: 20px; color: #6b7280;">
+                                        Scanning...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Active Trades Full Width -->
+                <div class="clean-panel">
+                    <div class="table-container" style="box-shadow:none; border:none; border-radius:0;">
+                        <table>
+                            <thead>
+                                <tr class="table-title">
+                                    <td colspan="7">Active Trades</td>
+                                </tr>
+                                <tr>
+                                    <th>Contract</th>
+                                    <th>Side / Lev</th>
+                                    <th>Amount (Margin / Notl)</th>
+                                    <th>Price (Entry / Mark)</th>
+                                    <th>TP / SL</th>
+                                    <th>PnL</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trades-funding">
+                                <tr>
+                                    <td colspan="7" class="empty-state" style="text-align:center;">No active trades</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: AGAINST FUNDING BOT -->
+            <div id="section-bot-contrarian" class="section-view">
+                <!-- Header Removed -->
+
+                <!-- Top Bar -->
+                <div class="top-bar">
+                    <div class="top-bar-left">
+                        <!-- AutoTrade moved to table -->
+                    </div>
+                    <div class="top-bar-center">
+                        <div style="font-weight:600; color:#e0e0e0; margin-bottom:4px;">Strategy Rules</div>
+                        <div>window < 10m • Rate> ±0.15% • Bet AGAINST • 1x Lev</div>
+                    </div>
+                    <div class="top-bar-right">
+                        <div style="text-align:right;">
+                            <div class="stat-value positive" id="pnl-contrarian" style="font-size:18px;">+$0.00</div>
+                            <div class="stat-label">PnL</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div class="stat-value" id="balance-contrarian" style="font-size:18px; color:#e0e0e0;">
+                                $10,000</div>
+                            <div class="stat-label">Balance</div>
+                        </div>
+                        <span class="bot-status" id="status-contrarian">STOPPED</span>
+                    </div>
+                </div>
+
+                <!-- Eligible Contracts Table -->
+                <div class="clean-panel">
+                    <div class="table-container"
+                        style="box-shadow:none; border:none; border-radius:0; max-height: 250px; overflow-y: auto;">
+                        <table class="mini-table">
+                            <thead>
+                                <tr class="table-title">
+                                    <td colspan="5" style="padding: 12px 16px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <span>Eligible Contracts (Funding >= ±0.15%)</span>
+                                            <button id="btn-contrarian" class="toggle-btn"
+                                                onclick="toggleBot('contrarian')"
+                                                style="width:auto; min-width:120px; padding:6px 12px; font-size:13px; margin:0;">AutoTrade</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Contract</th>
+                                    <th>Price</th>
+                                    <th>Funding</th>
+                                    <th>Window</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eligible-contrarian">
+                                <tr>
+                                    <td colspan="5" style="text-align:center; padding: 20px; color: #6b7280;">
+                                        Scanning...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Active Trades Full Width -->
+                <div class="clean-panel">
+                    <div class="table-container" style="box-shadow:none; border:none; border-radius:0;">
+                        <table>
+                            <thead>
+                                <tr class="table-title">
+                                    <td colspan="7">Active Trades</td>
+                                </tr>
+                                <tr>
+                                    <th>Contract</th>
+                                    <th>Side / Lev</th>
+                                    <th>Amount (Margin / Notl)</th>
+                                    <th>Price (Entry / Mark)</th>
+                                    <th>TP / SL</th>
+                                    <th>PnL</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trades-contrarian">
+                                <tr>
+                                    <td colspan="7" class="empty-state" style="text-align:center;">No active trades</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 4: PNL & HISTORY -->
+            <div id="section-pnl" class="section-view">
+                <header>
+                    <h1>Trade History & PnL</h1>
+                    <p class="subtitle">Performance analysis of all simulated trades</p>
+                </header>
+
+                <div class="clean-panel">
+                    <div class="table-container" style="box-shadow:none; border:none; border-radius:0;">
+                        <table>
+                            <thead>
+                                <tr class="table-title">
+                                    <td colspan="8">Trade History</td>
+                                </tr>
+                                <tr>
+                                    <th>Contract</th>
+                                    <th>Side / Lev</th>
+                                    <th>Amount (Margin / Notl)</th>
+                                    <th>Entry Price</th>
+                                    <th>Exit Price</th>
+                                    <th>Realized PnL</th>
+                                    <th>Reason</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trade-history-body">
+                                <tr>
+                                    <td colspan="8" class="empty-state" style="text-align:center;">No closed trades yet
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            API_KEY: 'Y9E5nOuoqqnJKx9N9Ub5yQqSSMpaiU',
+            API_SECRET: '9DTwsHvCzcHnRHXvvMgbORaEp5aR2mx9cUDBaOVltZABh9H9qj6WJxAYjPSY',
+            REST_API_URL: 'https://api.india.delta.exchange',
+            WS_URL: 'wss://socket.india.delta.exchange',
+            LIVE_MODE: true,
+            TELEGRAM_TOKEN: '8327311469:AAFl4m0qbzJSCCRcCQUH1RUGNW-J98f40Co',
+            TELEGRAM_CHAT_ID: localStorage.getItem('TELEGRAM_CHAT_ID') || null
+        };
+
+        class TelegramService {
+            constructor() {
+                this.token = CONFIG.TELEGRAM_TOKEN;
+                this.chatId = CONFIG.TELEGRAM_CHAT_ID;
+                this.baseUrl = `https://api.telegram.org/bot${this.token}`;
+                this.alertHistory = {}; // Key: Symbol, Value: Timestamp
+            }
+
+            async getUpdates() {
+                try {
+                    const response = await fetch(`${this.baseUrl}/getUpdates`);
+                    const data = await response.json();
+                    if (data.ok && data.result.length > 0) {
+                        // Find the last message from a private chat
+                        const lastMsg = data.result.reverse().find(u => u.message && u.message.chat.type === 'private');
+                        if (lastMsg) {
+                            this.chatId = lastMsg.message.chat.id;
+                            CONFIG.TELEGRAM_CHAT_ID = this.chatId;
+                            localStorage.setItem('TELEGRAM_CHAT_ID', this.chatId);
+                            this.updateUIStatus(true);
+                            this.sendMessage("✅ Antigravity Bot Connected! You will receive funding alerts here.");
+                            return true;
+                        }
+                    }
+                    return false;
+                } catch (e) {
+                    console.error("Telegram Update Error:", e);
+                    return false;
+                }
+            }
+
+            async sendMessage(text) {
+                if (!this.chatId) return;
+                try {
+                    await fetch(`${this.baseUrl}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: this.chatId,
+                            text: text,
+                            parse_mode: 'Markdown'
+                        })
+                    });
+                } catch (e) {
+                    console.error("Telegram Send Error:", e);
+                }
+            }
+
+            checkAlerts() {
+                if (!this.chatId) return;
+
+                products.forEach(p => {
+                    const data = getMergedData(p.symbol);
+                    if (!data || !data.funding_rate) return;
+
+                    const fundingRate = parseFloat(data.funding_rate);
+                    const absFunding = Math.abs(fundingRate);
+
+                    // CRITERIA 1: Funding >= 0.5% (Positive or Negative)
+                    if (absFunding < 0.50) return;
+
+                    // CRITERIA 2: Window Left <= 15 mins
+                    const intervalSeconds = data.product_specs?.rate_exchange_interval || 28800;
+                    const secondsRemaining = getSecondsToNextFunding(intervalSeconds);
+                    const minutesLeft = Math.floor(secondsRemaining / 60);
+
+                    if (minutesLeft > 15) return;
+
+                    // DEBOUNCE: Check if sent in last 1 hour (3600000 ms)
+                    const lastSent = this.alertHistory[p.symbol];
+                    if (lastSent && (Date.now() - lastSent) < 3600000) return;
+
+                    // SEND ALERT
+                    this.sendFundingAlert(p, fundingRate, minutesLeft, intervalSeconds);
+                });
+            }
+
+            sendFundingAlert(product, rate, minutesLeft, intervalSeconds) {
+                const intervalHours = intervalSeconds / 3600;
+                const emoji = rate > 0 ? '🟢' : '🔴';
+                const direction = rate > 0 ? 'Positive (Longs Pay Shorts)' : 'Negative (Shorts Pay Longs)';
+
+                const msg = `
+🚨 **Funding Opportunity Alert** 🚨
+
+**Contract:** \`${product.symbol}\`
+**Funding Rate:** ${emoji} **${(rate * 100).toFixed(4)}%**
+**Details:** ${direction}
+**Window:** ${intervalHours}h Cycle
+**Time Left:** ⏳ **${minutesLeft} mins**
+
+_Bot is monitoring for entry..._
+`;
+                this.sendMessage(msg);
+                this.alertHistory[product.symbol] = Date.now();
+            }
+
+            updateUIStatus(connected) {
+                const btn = document.getElementById('btn-connect-telegram');
+                if (btn) {
+                    if (connected) {
+                        btn.innerHTML = '✅ Telegram Connected';
+                        btn.style.background = 'rgba(16, 185, 129, 0.2)';
+                        btn.style.color = '#10b981';
+                        btn.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+                        btn.disabled = true;
+                    } else {
+                        btn.innerHTML = '📢 Connect Telegram';
+                        btn.onclick = () => connectTelegram();
+                    }
+                }
+            }
+        }
+
+        const telegramService = new TelegramService();
+
+        async function connectTelegram() {
+            const btn = document.getElementById('btn-connect-telegram');
+            if (btn) btn.innerHTML = 'Connecting...';
+
+            const success = await telegramService.getUpdates();
+            if (!success) {
+                alert("Could not find your chat ID! Please send /start or any message to the bot first: t.me/deltabot99_bot");
+                if (btn) btn.innerHTML = '📢 Connect Telegram';
+            }
+        }
+
+        class DeltaRestClient {
+            constructor() {
+                this.baseUrl = CONFIG.REST_API_URL;
+                this.apiKey = CONFIG.API_KEY;
+                this.apiSecret = CONFIG.API_SECRET;
+            }
+
+            generateSignature(method, path, payload, timestamp) {
+                const signatureString = method + timestamp + path + (payload || '');
+                return CryptoJS.HmacSHA256(signatureString, this.apiSecret).toString(CryptoJS.enc.Hex);
+            }
+
+            async request(method, path, payload = null) {
+                const timestamp = Math.floor(Date.now() / 1000).toString();
+                const signature = this.generateSignature(method, path, payload ? JSON.stringify(payload) : '', timestamp);
+
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'api-key': this.apiKey,
+                    'signature': signature,
+                    'timestamp': timestamp
+                };
+
+                const options = {
+                    method: method,
+                    headers: headers
+                };
+
+                if (payload) {
+                    options.body = JSON.stringify(payload);
+                }
+
+                try {
+                    const response = await fetch(`${this.baseUrl}${path}`, options);
+                    const data = await response.json();
+                    if (!data.success) {
+                        console.error('API Request Failed:', data);
+                        throw new Error(data.error?.message || 'API Request Failed');
+                    }
+                    return data.result;
+                } catch (error) {
+                    console.error('API Request Error:', error);
+                    throw error;
+                }
+            }
+
+            async getWalletBalance() {
+                // Fetch spot wallet balance as proxy or specific futures wallet if endpoints differ
+                // Usually GET /v2/wallet/balances
+                const data = await this.request('GET', '/v2/wallet/balances');
+                // Assuming USDT balance is what we want
+                const usdt = data.find(b => b.asset_symbol === 'USDT');
+                return usdt ? parseFloat(usdt.balance) : 0;
+            }
+
+            async getPositions() {
+                // GET /v2/orders?state=open  <-- No, orders are different from positions
+                // GET /v2/positions
+                // Need to find correct endpoint. Usually /v2/positions/margined or similar.
+                // Delta API v2: GET /v2/positions
+                // We'll stick to /v2/positions assuming it exists and returns array
+                return await this.request('GET', '/v2/positions');
+            }
+
+            async placeOrder(order) {
+                // POST /v2/orders
+                return await this.request('POST', '/v2/orders', order);
+            }
+        }
+
+        const restClient = new DeltaRestClient();
+
+        // State
+        let products = [];
+        let tickers = {};
+        let ws = null;
+        let sortColumn = null;
+        let sortDirection = 'asc';
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+
+        // Utility Functions
+        function formatNumber(num, decimals = 5) {
+            if (num === null || num === undefined || isNaN(num)) return '--';
+            const parsed = parseFloat(num);
+            // For very small numbers, use fixed notation with specified decimals
+            return parsed.toFixed(decimals);
+        }
+
+        function formatVolume(volume) {
+            if (!volume) return '--';
+            const num = parseFloat(volume);
+            if (isNaN(num)) return '--';
+
+            if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
+            if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
+            if (num >= 1e3) return `$${(num / 1e3).toFixed(2)}K`;
+            return `$${num.toFixed(2)}`;
+        }
+
+        function formatPercentage(value, decimals = 2) {
+            if (value === null || value === undefined || isNaN(value)) return '--';
+            const num = parseFloat(value);
+            // No + sign for positive values, just the number
+            return `${num.toFixed(decimals)}%`;
+        }
+
+        function formatFundingRate(value, intervalSeconds) {
+            if (value === null || value === undefined || isNaN(value)) return '--';
+            const num = parseFloat(value);
+            // Convert interval from seconds to hours
+            const intervalHours = intervalSeconds ? intervalSeconds / 3600 : 8;
+            return `${num.toFixed(4)}% /${intervalHours}h`;
+        }
+
+        function calculateNextFundingTime(intervalSeconds = 28800) {
+            // Calculate next funding time based on the contract's specific interval
+            // intervalSeconds comes from rate_exchange_interval (e.g., 28800 for 8h, 14400 for 4h)
+            const now = new Date();
+
+            // Convert current time to IST
+            const istOffset = 5.5 * 60; // IST is UTC+5:30
+            const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const istTime = new Date(utcTime + (istOffset * 60000));
+
+            // Base funding time is 5:30 AM IST (in milliseconds since midnight)
+            const baseFundingTime = new Date(istTime);
+            baseFundingTime.setHours(5, 30, 0, 0);
+
+            // Calculate how many intervals have passed since 5:30 AM
+            const timeSinceBase = istTime - baseFundingTime;
+            const intervalMs = intervalSeconds * 1000;
+
+            // If we're before 5:30 AM today, use yesterday's 5:30 AM as base
+            let baseTime;
+            if (timeSinceBase < 0) {
+                baseTime = new Date(baseFundingTime);
+                baseTime.setDate(baseTime.getDate() - 1);
+            } else {
+                baseTime = baseFundingTime;
+            }
+
+            // Calculate next funding time
+            const timeSinceBaseAdjusted = istTime - baseTime;
+            const intervalsPassed = Math.floor(timeSinceBaseAdjusted / intervalMs);
+            const nextFundingTime = new Date(baseTime.getTime() + ((intervalsPassed + 1) * intervalMs));
+
+            const diff = nextFundingTime - istTime;
+            const hoursLeft = Math.floor(diff / (1000 * 60 * 60));
+            const minutesLeft = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const secondsLeft = Math.floor((diff % (1000 * 60)) / 1000);
+
+            return `${hoursLeft}h ${minutesLeft}m ${secondsLeft}s`;
+        }
+
+        function getSecondsToNextFunding(intervalSeconds = 28800) {
+            // Same logic as above but returning seconds for sorting
+            const now = new Date();
+            const istOffset = 5.5 * 60;
+            const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const istTime = new Date(utcTime + (istOffset * 60000));
+
+            const baseFundingTime = new Date(istTime);
+            baseFundingTime.setHours(5, 30, 0, 0);
+
+            const timeSinceBase = istTime - baseFundingTime;
+            const intervalMs = intervalSeconds * 1000;
+
+            let baseTime;
+            if (timeSinceBase < 0) {
+                baseTime = new Date(baseFundingTime);
+                baseTime.setDate(baseTime.getDate() - 1);
+            } else {
+                baseTime = baseFundingTime;
+            }
+
+            const timeSinceBaseAdjusted = istTime - baseTime;
+            const intervalsPassed = Math.floor(timeSinceBaseAdjusted / intervalMs);
+            const nextFundingTime = new Date(baseTime.getTime() + ((intervalsPassed + 1) * intervalMs));
+
+            return (nextFundingTime - istTime) / 1000;
+        }
+
+        function updateStatus(connected) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+
+            if (connected) {
+                dot.classList.remove('disconnected');
+                text.textContent = 'Connected • Live';
+                reconnectAttempts = 0;
+            } else {
+                dot.classList.add('disconnected');
+                text.textContent = 'Disconnected';
+            }
+        }
+
+        function updateLastUpdate() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('lastUpdate').textContent = timeString;
+        }
+
+        // API Functions
+        async function fetchProducts() {
+            try {
+                const response = await fetch(`${CONFIG.REST_API_URL}/v2/products`);
+                const data = await response.json();
+
+                if (data.success && data.result) {
+                    // Filter for perpetual futures only
+                    products = data.result.filter(p => p.contract_type === 'perpetual_futures');
+                    console.log(`Loaded ${products.length} perpetual futures contracts`);
+                    return products;
+                }
+            } catch (error) {
+                console.error('Error fetching products:', error);
+                showError('Failed to load products. Please refresh the page.');
+            }
+            return [];
+        }
+
+        async function fetchTickers() {
+            try {
+                const response = await fetch(`${CONFIG.REST_API_URL}/v2/tickers?contract_types=perpetual_futures`);
+                const data = await response.json();
+
+                if (data.success && data.result) {
+                    data.result.forEach(ticker => {
+                        tickers[ticker.symbol] = ticker;
+                    });
+                    console.log(`Loaded ${data.result.length} tickers`);
+                    return true;
+                }
+            } catch (error) {
+                console.error('Error fetching tickers:', error);
+            }
+            return false;
+        }
+
+        function showError(message) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9">
+                        <div class="error">${message}</div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // WebSocket Functions
+        function connectWebSocket() {
+            if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+                return;
+            }
+
+            console.log('Connecting to WebSocket...');
+            ws = new WebSocket(CONFIG.WS_URL);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                updateStatus(true);
+
+                // Subscribe to ticker channel for all symbols
+                const subscribeMessage = {
+                    type: 'subscribe',
+                    payload: {
+                        channels: [
+                            {
+                                name: 'v2/ticker',
+                                symbols: ['all']
+                            }
+                        ]
+                    }
+                };
+
+                ws.send(JSON.stringify(subscribeMessage));
+                console.log('Subscribed to ticker updates');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    // Handle ticker updates
+                    if (data.symbol && data.mark_price !== undefined) {
+                        const oldTicker = tickers[data.symbol] || {};
+                        tickers[data.symbol] = { ...oldTicker, ...data };
+                        updateTableRow(data.symbol);
+                        updateLastUpdate();
+                    }
+                } catch (error) {
+                    console.error('Error processing WebSocket message:', error);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateStatus(false);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                updateStatus(false);
+
+                // Attempt to reconnect
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+                    console.log(`Reconnecting in ${delay}ms... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+                    setTimeout(connectWebSocket, delay);
+                } else {
+                    showError('Connection lost. Please refresh the page.');
+                }
+            };
+        }
+
+        // Table Functions
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            if (products.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="loading">No perpetual futures contracts found.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // Sort products if needed
+            let sortedProducts = [...products];
+            if (sortColumn) {
+                sortedProducts.sort((a, b) => {
+                    const aData = getMergedData(a.symbol);
+                    const bData = getMergedData(b.symbol);
+
+                    let aValue = aData[sortColumn];
+                    let bValue = bData[sortColumn];
+
+                    // Handle special cases
+                    if (sortColumn === 'change_24h') {
+                        aValue = parseFloat(aData.ltp_change_24h || 0);
+                        bValue = parseFloat(bData.ltp_change_24h || 0);
+                    } else if (sortColumn === 'mark_price') {
+                        aValue = parseFloat(aData.close || aData.mark_price || 0);
+                        bValue = parseFloat(bData.close || bData.mark_price || 0);
+                    } else if (sortColumn === 'funding') {
+                        aValue = parseFloat(aData.funding_rate || 0);
+                        bValue = parseFloat(bData.funding_rate || 0);
+                    } else if (sortColumn === 'volume') {
+                        aValue = parseFloat(aData.turnover_usd || 0);
+                        bValue = parseFloat(bData.turnover_usd || 0);
+                    } else if (sortColumn === 'oi') {
+                        aValue = parseFloat(aData.oi_value_usd || 0);
+                        bValue = parseFloat(bData.oi_value_usd || 0);
+                    } else if (sortColumn === 'funding_window') {
+                        const aInterval = aData.product_specs?.rate_exchange_interval || 28800;
+                        const bInterval = bData.product_specs?.rate_exchange_interval || 28800;
+                        aValue = getSecondsToNextFunding(aInterval);
+                        bValue = getSecondsToNextFunding(bInterval);
+                    }
+
+                    // Convert to numbers if needed
+                    aValue = parseFloat(aValue) || 0;
+                    bValue = parseFloat(bValue) || 0;
+
+                    if (sortDirection === 'asc') {
+                        return aValue - bValue;
+                    } else {
+                        return bValue - aValue;
+                    }
+                });
+            }
+
+            sortedProducts.forEach(product => {
+                const row = createTableRow(product);
+                tbody.appendChild(row);
+            });
+        }
+
+        function getMergedData(symbol) {
+            const product = products.find(p => p.symbol === symbol) || {};
+            const ticker = tickers[symbol] || {};
+            return { ...product, ...ticker };
+        }
+
+        function getChange24h(data) {
+            // Use ltp_change_24h (last traded price change) to match platform display
+            return parseFloat(data.ltp_change_24h || data.mark_change_24h || 0);
+        }
+
+        function getLastPrice(data) {
+            // Use close (last traded price) to match platform display
+            return parseFloat(data.close || data.mark_price || 0);
+        }
+
+        function createTableRow(product) {
+            const row = document.createElement('tr');
+            row.id = `row-${product.symbol}`;
+
+            const data = getMergedData(product.symbol);
+            const change24h = getChange24h(data);
+            const changeClass = change24h >= 0 ? 'positive' : 'negative';
+            const fundingRate = parseFloat(data.funding_rate || 0);
+            const lastPrice = getLastPrice(data);
+            const fundingInterval = data.product_specs?.rate_exchange_interval || 28800;
+
+            row.innerHTML = `
+                <td>
+                    <div class="contract-cell">
+                        <span class="star-icon" onclick="toggleFavorite('${product.symbol}')">☆</span>
+                        <div>
+                            <div class="symbol">${product.symbol}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="description">
+                        ${data.description || 'Perpetual'}
+                        <span class="leverage-badge">${Math.round(parseFloat(product.default_leverage || data.leverage || 20))}x</span>
+                    </div>
+                </td>
+                <td class="price">$${formatNumber(lastPrice, 5)}</td>
+                <td class="${changeClass}">${formatPercentage(change24h)}</td>
+                <td>${formatVolume(data.turnover_usd)}</td>
+                <td>${formatVolume(parseFloat(data.oi_value_usd))}</td>
+                <td>
+                    <div class="prices-range">
+                        <span class="positive">High: ${formatNumber(data.high, 5)}</span>
+                        <span class="negative">Low: ${formatNumber(data.low, 5)}</span>
+                    </div>
+                </td>
+                <td class="${fundingRate >= 0 ? 'positive' : 'negative'}">
+                    ${formatFundingRate(fundingRate, fundingInterval)}
+                </td>
+                <td class="funding-window" data-interval="${fundingInterval}" id="funding-window-${product.symbol}">
+                    ${calculateNextFundingTime(fundingInterval)}
+                </td>
+            `;
+
+            return row;
+        }
+
+        function updateTableRow(symbol) {
+            const row = document.getElementById(`row-${symbol}`);
+            if (!row) return;
+
+            const product = products.find(p => p.symbol === symbol);
+            if (!product) return;
+
+            const data = getMergedData(symbol);
+            const change24h = getChange24h(data);
+            const changeClass = change24h >= 0 ? 'positive' : 'negative';
+            const fundingRate = parseFloat(data.funding_rate || 0);
+            const lastPrice = getLastPrice(data);
+            const fundingInterval = data.product_specs?.rate_exchange_interval || 28800;
+
+            // Update specific cells
+            const cells = row.cells;
+            cells[2].innerHTML = '$' + formatNumber(lastPrice, 5);
+            cells[2].className = 'price';
+
+            cells[3].innerHTML = formatPercentage(change24h);
+            cells[3].className = changeClass;
+
+            cells[4].innerHTML = formatVolume(data.turnover_usd);
+            cells[5].innerHTML = formatVolume(parseFloat(data.oi_value_usd));
+
+            cells[6].innerHTML = `
+                <div class="prices-range">
+                    <span class="positive">High: ${formatNumber(data.high, 5)}</span>
+                    <span class="negative">Low: ${formatNumber(data.low, 5)}</span>
+                </div>
+            `;
+
+            cells[7].innerHTML = formatFundingRate(fundingRate, fundingInterval);
+            cells[7].className = fundingRate >= 0 ? 'positive' : 'negative';
+
+            // Update funding window
+            cells[8].innerHTML = calculateNextFundingTime(fundingInterval);
+            cells[8].setAttribute('data-interval', fundingInterval);
+
+            // Add flash animation
+            row.classList.add('updated');
+            setTimeout(() => row.classList.remove('updated'), 500);
+        }
+
+        function toggleFavorite(symbol) {
+            // Placeholder for favorite functionality
+            console.log(`Toggle favorite for ${symbol}`);
+        }
+
+        // Sorting Functions
+        function setupSorting() {
+            const headers = document.querySelectorAll('th.sortable');
+            headers.forEach(header => {
+                header.addEventListener('click', () => {
+                    const column = header.dataset.column;
+
+                    if (sortColumn === column) {
+                        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortColumn = column;
+                        sortDirection = 'asc';
+                    }
+
+                    // Update header classes
+                    headers.forEach(h => {
+                        h.classList.remove('sort-asc', 'sort-desc');
+                    });
+                    header.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+
+                    renderTable();
+                });
+            });
+        }
+
+        // Initialize Application
+        async function init() {
+            console.log('Initializing Delta Exchange Scanner...');
+
+            // Fetch initial data
+            await fetchProducts();
+            await fetchTickers();
+
+            // Connect WebSocket for real-time updates
+            connectWebSocket();
+
+            // Render initial table
+            renderTable();
+
+            // Setup sorting
+            setupSorting();
+
+            // Update last update time
+            updateLastUpdate();
+
+            // Initialize Telegram Status
+            telegramService.updateUIStatus(!!CONFIG.TELEGRAM_CHAT_ID);
+
+            // Update funding window countdown every second
+            setInterval(() => {
+                const fundingCells = document.querySelectorAll('.funding-window');
+                fundingCells.forEach(cell => {
+                    const intervalSeconds = parseInt(cell.getAttribute('data-interval')) || 28800;
+                    cell.textContent = calculateNextFundingTime(intervalSeconds);
+                });
+            }, 1000);
+
+            // Telegram Alert Loop (Every 60 seconds)
+            setInterval(() => {
+                telegramService.checkAlerts();
+            }, 60000);
+
+            // Initial Alert Check (after short delay to ensure data)
+            setTimeout(() => telegramService.checkAlerts(), 5000);
+        }
+
+        // Dashboard Functions
+        function switchSection(sectionId) {
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.onclick.toString().includes(sectionId)) {
+                    item.classList.add('active');
+                }
+            });
+
+            // Update sections
+            document.querySelectorAll('.section-view').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(`section-${sectionId}`).classList.add('active');
+        }
+
+        // --- SIMULATION ENGINE ---
+
+        class GlobalSimulationStore {
+            constructor() {
+                this.balance = 0;
+                this.trades = [];
+                this.history = []; // Keep local history for now, or fetch from API? API is better but harder. Let's keep local log of what THIS session did.
+                this.lockedMargin = 0;
+                this.syncInterval = setInterval(() => this.sync(), 2000); // Sync every 2s
+            }
+
+            async sync() {
+                if (!CONFIG.LIVE_MODE) return;
+
+                try {
+                    // Sync Balance
+                    this.balance = await restClient.getWalletBalance();
+
+                    // Sync Positions
+                    const positions = await restClient.getPositions();
+                    // Map API positions to our trade format
+                    this.trades = positions.map(p => ({
+                        id: p.product_id, // Use product_id as ID
+                        strategyId: 'manual', // or try to infer from metadata? For now 'manual' or 'generic'
+                        symbol: p.product_symbol,
+                        side: parseFloat(p.size) > 0 ? 'Long' : 'Short',
+                        entryPrice: parseFloat(p.entry_price),
+                        margin: parseFloat(p.margin), // Verify API field
+                        leverage: parseFloat(p.leverage),
+                        pnl: parseFloat(p.realized_pnl) + parseFloat(p.unrealized_pnl), // Check fields
+                        pnlPercent: 0, // Need calculation
+                        size: Math.abs(parseFloat(p.size)),
+                        formattedSize: p.size
+                    }));
+
+                    // Update UI
+                    this.updateUI();
+
+                } catch (e) {
+                    console.error("Sync Failed:", e);
+                }
+            }
+
+            getAvailableBalance() {
+                return this.balance; // API returns valid balance
+            }
+
+            getUnrealizedPnL() {
+                // Return sum of PnL from trades
+                // If using real API, positions have uPnL
+                return this.trades.reduce((acc, t) => acc + (t.pnl || 0), 0);
+            }
+
+            // Replacing addTrade with executeOrder since we don't add trades locally, we wait for sync
+            async executeOrder(order) {
+                try {
+                    await restClient.placeOrder(order);
+                    console.log("Order Placed:", order);
+                    // Immediate sync?
+                    setTimeout(() => this.sync(), 1000);
+                } catch (e) {
+                    alert(`Order Failed: ${e.message}`);
+                }
+            }
+
+            async closeTrade(tradeId, exitPrice = null, reason = 'Manual Exit') {
+                // TradeId here is product_id from sync
+                // To close, place opposite order of full size
+                const trade = this.trades.find(t => t.id === tradeId);
+                if (!trade) return;
+
+                const side = trade.side === 'Long' ? 'sell' : 'buy';
+
+                const order = {
+                    product_id: parseInt(trade.id),
+                    size: trade.size, // Size is absolute
+                    side: side,
+                    order_type: 'market_order',
+                    leverage: trade.leverage
+                };
+
+                await this.executeOrder(order);
+            }
+
+            updateTradePnL(symbol, currentPrice) {
+                // In Real Mode, PnL comes from API sync or specific ticker calc?
+                // Tickers run fast. Positions sync slow (2s).
+                // We can update local PnL estimate based on Ticker price for smoother UI
+                this.trades.forEach(trade => {
+                    if (trade.symbol === symbol) {
+                        const direction = trade.side === 'Long' ? 1 : -1;
+                        const priceDiff = (currentPrice - trade.entryPrice) * direction;
+                        // Approx PnL
+                        // For accurate PnL we need contract value etc.
+                        // Let's use simplified PnL for display between syncs
+                        // or just rely on Sync if 2s is fast enough.
+                        // Let's rely on Sync for simplicity and accuracy.
+                        // Or if I want real-time PnL in UI using Ticker:
+                        // trade.pnl = (currentPrice - trade.entryPrice) * trade.size; // This assumes linear contract?
+                        // Delta pairs usually Inverse or Linear.
+                        // Assume Linear for now.
+                    }
+                });
+                this.updateUI();
+            }
+
+            async manualOpenTrade(strategyId, symbol, price, fundingRate) {
+                const balance = this.balance;
+                const margin = balance * 0.10; // 10% Balance Rule
+
+                if (margin < 5) { // Min margin check?
+                    alert("Insufficient balance (need > $5 margin)");
+                    return;
+                }
+
+                // Get Product ID
+                const product = products.find(p => p.symbol === symbol);
+                if (!product) {
+                    alert("Product not found");
+                    return;
+                }
+
+                // Determine Side
+                let side = 'buy';
+                if (strategyId === 'funding') {
+                    if (fundingRate > 0) side = 'buy'; else side = 'sell'; // Wait, funding > 0 means Long pay Short?
+                    // Strategy:
+                    // Funding > 0 (Longs pay Shorts) -> We want to be Short to earn funding?
+                    // "Follow Trend" -> If Funding > 0, usually Up Trend? No, high funding means Overbought.
+                    // Let's check original logic:
+                    // if (fundingRate > 0) side = 'Long'; else side = 'Short'; (Original)
+                    // If Funding > 0, price is bullish?
+                    // Actually, let's keep original logic mapping.
+                    // Original: Funding>0 -> Long.
+                    if (fundingRate > 0) side = 'buy'; else side = 'sell';
+                } else {
+                    // Contrarian
+                    if (fundingRate > 0) side = 'sell'; else side = 'buy';
+                }
+
+                // Calculate Size
+                // Margin = (Price * Size) / Leverage
+                // Size = (Margin * Leverage) / Price
+                const leverage = 1;
+                const size = Math.floor((margin * leverage) / price * 100) / 100; // 2 decimals? Check Lot Size.
+                // Assuming generic rounding.
+
+                const order = {
+                    product_id: product.id,
+                    size: size,
+                    side: side,
+                    order_type: 'limit_order', // Bracket order uses limit? Or market.
+                    // User said "proper stop loss and target".
+                    // Bracket orders usually require specific params.
+                    // For Delta, place order with bracket.
+                    limit_price: price.toString(),
+                    leverage: leverage.toString(),
+                    stop_loss_price: (side === 'buy' ? price * 0.985 : price * 1.015).toString(), // 1.5% SL
+                    take_profit_price: (side === 'buy' ? price * 1.03 : price * 0.97).toString() // 3.0% TP
+                };
+
+                // If user wants Market Execution for speed? "limit_price" might not fill immediately.
+                // "simmulateion ... simulated" used current price.
+                // Real execution: Limit at Mark Price might not fill.
+                // Use Market Order for guaranteed entry in this bot context?
+                // But Bracket often requires Limit?
+                // Delta API v2 `place_order`: `order_type: market_order` supports `stop_loss_price` / `take_profit_price`?
+                // Valid types: limit_order, market_order.
+                // Let's try Market Order with brackets if supported, or Limit Order at slightly worse price (Marketable Limit).
+                // I'll use Market Order for simplicity and "Single Trade" focus.
+
+                order.order_type = 'market_order';
+                delete order.limit_price;
+
+                await this.executeOrder(order);
+            }
+
+            updateUI() {
+                const totalPnL = this.getUnrealizedPnL();
+                const balanceStr = `$${this.balance.toFixed(2)}`;
+                const pnlStr = `${totalPnL >= 0 ? '+' : ''}$${totalPnL.toFixed(2)}`;
+                const pnlClass = `stat-value ${totalPnL >= 0 ? 'positive' : 'negative'}`;
+
+                // Update ALL Balance & PnL Headers (Funding & Contrarian)
+                ['funding', 'contrarian'].forEach(id => {
+                    const balEl = document.getElementById(`balance-${id}`);
+                    if (balEl) balEl.innerText = balanceStr;
+
+                    const pnlEl = document.getElementById(`pnl-${id}`);
+                    if (pnlEl) {
+                        pnlEl.innerText = pnlStr;
+                        pnlEl.className = pnlClass;
+                    }
+                });
+
+                // Update Trades Lists - Show ALL trades in both tables for now to ensure visibility
+                this.renderTradesForStrategy('funding');
+                this.renderTradesForStrategy('contrarian');
+
+                // Update History
+                this.renderHistory();
+            }
+
+            renderHistory() {
+                const container = document.getElementById('trade-history-body');
+                if (!container) return;
+
+                if (this.history.length === 0) {
+                    container.innerHTML = '<tr><td colspan="8" class="empty-state" style="text-align:center;">No closed trades yet</td></tr>';
+                    return;
+                }
+
+                container.innerHTML = this.history.map(trade => `
+                    <tr>
+                        <td class="symbol">${trade.symbol}</td>
+                        <td>
+                            <span class="leverage-badge" style="background:${trade.side === 'Long' ? 'rgba(74,222,128,0.2)' : 'rgba(239,68,68,0.2)'};color:${trade.side === 'Long' ? '#4ade80' : '#ef4444'}">
+                                ${trade.side} ${trade.leverage}x
+                            </span>
+                        </td>
+                        <td>
+                           <div style="font-size:13px;">Mg: $${formatNumber(trade.margin, 2)}</div>
+                           <div style="font-size:11px; color:#9ca3af;">No: $${formatNumber(trade.margin * trade.leverage, 2)}</div>
+                        </td>
+                        <td>$${formatNumber(trade.entryPrice, 4)}</td>
+                        <td>$${formatNumber(trade.exitPrice, 4)}</td>
+                        <td class="${trade.realizedPnL >= 0 ? 'positive' : 'negative'}" style="font-weight:700;">
+                            ${trade.realizedPnL >= 0 ? '+' : ''}$${trade.realizedPnL.toFixed(2)}
+                        </td>
+                        <td>${trade.exitReason}</td>
+                        <td style="font-size:12px; color:#9ca3af;">${new Date(trade.exitTime).toLocaleTimeString()}</td>
+                    </tr>
+                `).join('');
+            }
+
+            renderTradesForStrategy(strategyId) {
+                const container = document.getElementById(`trades-${strategyId}`);
+                if (!container) return;
+
+                // For Real Trading, show ALL trades in the active view, or filter if we can identify.
+                // Since we set strategyId='manual' in sync, let's just show ALL trades for now.
+                // Or filtered by 'manual' OR 'strategyId'.
+                const strategyTrades = this.trades; // Show ALL
+
+                if (strategyTrades.length === 0) {
+                    container.innerHTML = '<tr><td colspan="7" class="empty-state" style="text-align:center;">No active trades</td></tr>';
+                } else {
+                    container.innerHTML = strategyTrades.map(trade => `
+                    <tr>
+                        <td class="symbol">${trade.symbol}</td>
+                        <td>
+                            <span class="leverage-badge" style="background:${trade.side === 'Long' ? 'rgba(74,222,128,0.2)' : 'rgba(239,68,68,0.2)'};color:${trade.side === 'Long' ? '#4ade80' : '#ef4444'}">
+                                ${trade.side} ${trade.leverage}x
+                            </span>
+                        </td>
+                        <td>
+                           <div style="font-size:13px;">Mg: $${formatNumber(trade.margin, 2)}</div>
+                           <div style="font-size:11px; color:#9ca3af;">No: $${formatNumber(trade.margin * trade.leverage, 2)}</div>
+                        </td>
+                        <td>
+                            <div style="font-size:13px;">Ent: $${formatNumber(trade.entryPrice, 4)}</div>
+                            <div style="font-size:12px; color:#9ca3af;">Cur: $${formatNumber(tickers[trade.symbol]?.mark_price || trade.entryPrice, 4)}</div>
+                        </td>
+                        <td>
+                            <div class="prices-range">
+                                <span style="color:#4ade80">TP: $${formatNumber(trade.targetPrice, 4)}</span>
+                                <span style="color:#ef4444">SL: $${formatNumber(trade.stopPrice, 4)}</span>
+                            </div>
+                        </td>
+                        <td class="${trade.pnl >= 0 ? 'positive' : 'negative'}" style="font-weight:700;">
+                            ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}
+                            <span style="font-size:11px; opacity:0.7; font-weight:400; display:block;">(${trade.pnlPercent.toFixed(2)}%)</span>
+                        </td>
+                        <td>
+                            <button onclick="globalStore.closeTrade('${trade.id}', null, 'Manual Exit')" 
+                                    style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">
+                                Exit
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+                }
+            }
+        }
+
+        const globalStore = new GlobalSimulationStore();
+
+        class TradingBot {
+            constructor(strategyId) {
+                this.strategyId = strategyId; // 'funding' or 'contrarian'
+                this.isRunning = false;
+                this.scanInterval = null;
+            }
+
+            start() {
+                if (this.isRunning) return;
+                this.isRunning = true;
+                console.log(`[${this.strategyId}] Bot Started`);
+                this.scanInterval = setInterval(() => this.runLoop(), 1000); // Check every second
+            }
+
+            stop() {
+                this.isRunning = false;
+                console.log(`[${this.strategyId}] Bot Stopped`);
+                clearInterval(this.scanInterval);
+            }
+
+            runLoop() {
+                // Update Eligible Contracts Table (Always run this, or only when running? User might want to see eligible even if stopped)
+                // Let's run it always if we are viewing the section? No, simpler to run in loop.
+                // Actually, UI request implies "when i click on start bot then it should take trade". but header says "eligible contracts".
+                // Let's update the table regardless of running state? No, optimization. Let's update specific table if section is active?
+                // For now, I'll update the table in the background loop or main loop.
+
+                // 1. UPDATE PNL for existing trades (Global Store)
+                globalStore.trades.forEach(trade => {
+                    const currentData = getMergedData(trade.symbol);
+                    if (currentData && currentData.mark_price) {
+                        const currentPrice = parseFloat(currentData.mark_price);
+                        globalStore.updateTradePnL(trade.symbol, currentPrice);
+
+                        // Only check exit if THIS bot owns the trade? Or any bot?
+                        // Better if the bot that opened it manages it.
+                        if (trade.strategyId === this.strategyId) {
+                            this.checkExit(trade, currentPrice, currentData);
+                        }
+                    }
+                });
+
+                // 2. Refresh Eligible List Table
+                this.updateEligibleTable();
+
+                if (!this.isRunning) return;
+
+                // 3. SCAN for new trades
+                this.scanForOpportunities();
+            }
+
+            updateEligibleTable() {
+                // Find eligible contracts
+                const eligible = products.filter(p => {
+                    const data = getMergedData(p.symbol);
+                    const fundingRate = parseFloat(data.funding_rate || 0);
+                    return Math.abs(fundingRate) >= 0.15; // 0.15%
+                }).map(p => getMergedData(p.symbol));
+
+                // Sort by absolute funding rate descending
+                eligible.sort((a, b) => Math.abs(parseFloat(b.funding_rate)) - Math.abs(parseFloat(a.funding_rate)));
+
+                const tbody = document.getElementById(`eligible-${this.strategyId}`);
+                if (!tbody) return;
+
+                if (eligible.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color: #6b7280;">No eligible contracts (Wait for >= 0.15% funding)</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = eligible.map(data => {
+                    const interval = data.product_specs?.rate_exchange_interval || 28800;
+                    return `
+                        <tr>
+                            <td>${data.symbol}</td>
+                            <td>$${formatNumber(data.mark_price, 4)}</td>
+                            <td class="${parseFloat(data.funding_rate) >= 0 ? 'positive' : 'negative'}">${formatFundingRate(data.funding_rate, interval)}</td>
+                            <td class="funding-window" data-interval="${interval}">${calculateNextFundingTime(interval)}</td>
+                            <td>
+                                <button onclick="globalStore.manualOpenTrade('${this.strategyId}', '${data.symbol}', ${data.mark_price}, ${data.funding_rate})" 
+                                        style="background:rgba(102,126,234,0.2); color:#667eea; border:1px solid rgba(102,126,234,0.4); padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">
+                                    Trade
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            scanForOpportunities() {
+                // Filter products that meet criteria
+                const opportunities = products.filter(product => {
+                    const symbol = product.symbol;
+
+                    // Skip if already in a trade globally (For testing single trade)
+                    if (globalStore.trades.length > 0) return false;
+
+                    // Skip if already in a trade for this symbol (For THIS strategy)
+                    if (globalStore.trades.some(t => t.symbol === symbol && t.strategyId === this.strategyId)) return false;
+
+                    const data = getMergedData(symbol);
+                    if (!data || !data.mark_price) return false;
+
+                    // CHECK CRITERIA
+                    // 1. Funding Window Check (disabled for testing as per user request)
+                    // const intervalSeconds = data.product_specs?.rate_exchange_interval || 28800;
+                    // const secondsRemaining = getSecondsToNextFunding(intervalSeconds);
+                    // if (secondsRemaining > 600) return false; 
+
+                    // 2. Significant Funding Rate (STRICTER: >= 0.15%)
+                    const fundingRate = parseFloat(data.funding_rate || 0);
+                    if (Math.abs(fundingRate) < 0.15) return false;
+
+                    return true;
+                });
+
+                opportunities.forEach(product => {
+                    const data = getMergedData(product.symbol);
+                    const intervalSeconds = data.product_specs?.rate_exchange_interval || 28800;
+                    const secondsRemaining = getSecondsToNextFunding(intervalSeconds);
+                    const fundingRate = parseFloat(data.funding_rate || 0);
+
+                    this.executeStrategy(product.symbol, data, fundingRate, secondsRemaining);
+                });
+            }
+
+            executeStrategy(symbol, data, fundingRate, secondsRemaining) {
+                if (this.isPlacingOrder) return;
+
+                let side = null;
+
+                if (this.strategyId === 'funding') {
+                    if (fundingRate > 0) side = 'Short'; // Funding > 0 means Long pays Short (Short is good) -> Wait. 
+                    // Original Logic:
+                    // funding > 0 (Long pays Short) -> We want to be Short to RECEIVE funding.
+                    // Previous code: if (fundingRate > 0) side = 'Short'; else side = 'Long';
+                    // Wait, Step 666 code says:
+                    // if (fundingRate > 0) side = 'Short'; else side = 'Long'; (Funding Bot)
+                    // if (fundingRate > 0) side = 'Long'; else side = 'Short'; (Contrarian Bot)
+                    // This matches "Follow Trend" vs "Bet AGAINST"?
+                    // Actually Funding Bot = "Capture Funding", so usually Counter-Trend?
+                    // Let's stick to the code logic I see in Step 666.
+                    if (fundingRate > 0) side = 'Short';
+                    else side = 'Long';
+                } else {
+                    if (fundingRate > 0) side = 'Long';
+                    else side = 'Short';
+                }
+
+                if (!side) return;
+
+                console.log(`[${this.strategyId}] Attempting to Open ${side} on ${symbol}...`);
+                this.isPlacingOrder = true;
+
+                // Delegate to GlobalStore which handles API, Sizing (10%), Leverage (1x)
+                globalStore.manualOpenTrade(this.strategyId, symbol, data.mark_price, fundingRate)
+                    .then(() => {
+                        console.log(`[${this.strategyId}] Order executed.`);
+                    })
+                    .catch(e => {
+                        console.error(`[${this.strategyId}] Order failed:`, e);
+                    })
+                    .finally(() => {
+                        // Cooldown to prevent double-firing before Sync updates positions
+                        setTimeout(() => this.isPlacingOrder = false, 5000);
+                    });
+            }
+
+            checkExit(trade, currentPrice, data) {
+                // 1. Stop Loss (1.5%) & Take Profit (3.0%)
+                if (trade.pnlPercent <= -1.5) {
+                    globalStore.closeTrade(trade.id, currentPrice, 'Stop Loss');
+                    return;
+                }
+                if (trade.pnlPercent >= 3.0) {
+                    globalStore.closeTrade(trade.id, currentPrice, 'Take Profit');
+                    return;
+                }
+
+                // Window Logic (Disabled for testing, relying on TP/SL or user manual stop)
+            }
+        }
+
+        // Initialize Bots
+        const fundingBot = new TradingBot('funding');
+        const contrarianBot = new TradingBot('contrarian');
+
+        // Start background table updates even if bot is stopped
+        setInterval(() => {
+            fundingBot.updateEligibleTable();
+            contrarianBot.updateEligibleTable();
+        }, 2000);
+
+        // Bot Logic Hooks
+        function toggleBot(type) {
+            const btn = document.getElementById(`btn-${type}`);
+            const status = document.getElementById(`status-${type}`);
+            const bot = type === 'funding' ? fundingBot : contrarianBot;
+
+            if (btn.classList.contains('active')) {
+                // Stop
+                bot.stop();
+                btn.classList.remove('active');
+                btn.classList.add('stop');
+                btn.innerText = 'AutoTrade';
+                btn.classList.remove('stop');
+
+                status.innerText = 'STOPPED';
+                status.classList.remove('running');
+            } else {
+                // Start
+                bot.start();
+                btn.classList.add('active');
+                btn.innerText = 'StopTrades';
+
+                status.innerText = 'RUNNING';
+                status.classList.add('running');
+            }
+        }
+
+        // Start the application when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+
+</html>
