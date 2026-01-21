@@ -1000,34 +1000,55 @@
                 }
             }
 
+            // MODIFIED FOR USER TEST REQUEST: Top 5 Report Every Minute
             checkAlerts() {
                 if (!this.chatId) return;
 
-                products.forEach(p => {
+                // 1. Collect all valid data
+                let opportunities = products.map(p => {
                     const data = getMergedData(p.symbol);
-                    if (!data || !data.funding_rate) return;
+                    if (!data || !data.funding_rate) return null;
+                    return {
+                        symbol: p.symbol,
+                        rate: parseFloat(data.funding_rate),
+                        absRate: Math.abs(parseFloat(data.funding_rate)),
+                        interval: data.product_specs?.rate_exchange_interval || 28800
+                    };
+                }).filter(Boolean);
 
-                    const fundingRate = parseFloat(data.funding_rate);
-                    const absFunding = Math.abs(fundingRate);
+                // 2. Sort by Highest Absolute Rate
+                opportunities.sort((a, b) => b.absRate - a.absRate);
 
-                    // CRITERIA 1: Funding >= 0.5% (Positive or Negative)
-                    if (absFunding < 0.50) return;
+                // 3. Take Top 5
+                const top5 = opportunities.slice(0, 5);
 
-                    // CRITERIA 2: Window Left <= 15 mins
-                    const intervalSeconds = data.product_specs?.rate_exchange_interval || 28800;
-                    const secondsRemaining = getSecondsToNextFunding(intervalSeconds);
-                    const minutesLeft = Math.floor(secondsRemaining / 60);
+                if (top5.length === 0) return;
 
-                    if (minutesLeft > 15) return;
+                // 4. Build Report Message
+                let msg = `🧪 **Test Report: Top 5 Funding Rates** 🧪\n\n`;
 
-                    // DEBOUNCE: Check if sent in last 1 hour (3600000 ms)
-                    const lastSent = this.alertHistory[p.symbol];
-                    if (lastSent && (Date.now() - lastSent) < 3600000) return;
+                top5.forEach((item, index) => {
+                    const emoji = item.rate > 0 ? '🟢' : '🔴';
+                    msg += `${index + 1}. \`${item.symbol}\`: ${emoji} **${(item.rate * 100).toFixed(4)}%**\n`;
+                });
 
-                    // SEND ALERT
-                    this.sendFundingAlert(p, fundingRate, minutesLeft, intervalSeconds);
+                msg += `\n_Auto-refreshing every 1 min..._`;
+
+                // 5. Send (No Debounce for Test Mode)
+                this.sendMessage(msg);
+            }
+
+            /* 
+            checkAlerts_Standard() {
+                if (!this.chatId) return;
+
+                products.forEach(p => {
+                     const data = getMergedData(p.symbol);
+                     // ... STANDARD LOGIC HIDDEN FOR TEST MODE ...
+                     // ...
                 });
             }
+            */
 
             sendFundingAlert(product, rate, minutesLeft, intervalSeconds) {
                 const intervalHours = intervalSeconds / 3600;
