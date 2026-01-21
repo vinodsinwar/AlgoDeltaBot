@@ -933,6 +933,28 @@
                 this.chatId = CONFIG.TELEGRAM_CHAT_ID;
                 this.baseUrl = `https://api.telegram.org/bot${this.token}`;
                 this.alertHistory = {}; // Key: Symbol, Value: Timestamp
+                this.pollingInterval = null;
+
+                // Auto-Connect on init if ID missing
+                if (!this.chatId) {
+                    this.startAutoConnect();
+                } else {
+                    console.log("Telegram ID found in storage:", this.chatId);
+                    this.updateUIStatus(true);
+                }
+            }
+
+            startAutoConnect() {
+                console.log("Starting Telegram Auto-Connect Polling...");
+                // Poll every 5 seconds
+                this.pollingInterval = setInterval(async () => {
+                    if (this.chatId) {
+                        clearInterval(this.pollingInterval);
+                        return;
+                    }
+                    console.log("Polling for Telegram Chat ID...");
+                    await this.getUpdates();
+                }, 5000);
             }
 
             async getUpdates() {
@@ -946,8 +968,11 @@
                             this.chatId = lastMsg.message.chat.id;
                             CONFIG.TELEGRAM_CHAT_ID = this.chatId;
                             localStorage.setItem('TELEGRAM_CHAT_ID', this.chatId);
+
                             this.updateUIStatus(true);
                             this.sendMessage("✅ Antigravity Bot Connected! You will receive funding alerts here.");
+
+                            if (this.pollingInterval) clearInterval(this.pollingInterval);
                             return true;
                         }
                     }
@@ -1026,16 +1051,22 @@ _Bot is monitoring for entry..._
 
             updateUIStatus(connected) {
                 const btn = document.getElementById('btn-connect-telegram');
+                const statusConn = document.getElementById('connection-status'); // reuse connection status or add new one?
+                // Actually the top bar has "📢 Connect Telegram" button.
+
                 if (btn) {
                     if (connected) {
-                        btn.innerHTML = '✅ Telegram Connected';
+                        btn.innerHTML = '✅ TG Connected';
                         btn.style.background = 'rgba(16, 185, 129, 0.2)';
                         btn.style.color = '#10b981';
                         btn.style.border = '1px solid rgba(16, 185, 129, 0.4)';
                         btn.disabled = true;
+                        btn.onclick = null;
                     } else {
-                        btn.innerHTML = '📢 Connect Telegram';
-                        btn.onclick = () => connectTelegram();
+                        btn.innerHTML = '🔄 Auto-Connecting...';
+                        btn.disabled = true; // Disable click effectively since we are auto-polling
+                        // But maybe keep user option to force retry?
+                        // Let's make it indicate scanning.
                     }
                 }
             }
@@ -1043,15 +1074,10 @@ _Bot is monitoring for entry..._
 
         const telegramService = new TelegramService();
 
+        // Removed manual connectTelegram function call requirement, but kept function for manual override if needed
         async function connectTelegram() {
-            const btn = document.getElementById('btn-connect-telegram');
-            if (btn) btn.innerHTML = 'Connecting...';
-
-            const success = await telegramService.getUpdates();
-            if (!success) {
-                alert("Could not find your chat ID! Please send /start or any message to the bot first: t.me/deltabot99_bot");
-                if (btn) btn.innerHTML = '📢 Connect Telegram';
-            }
+            // No-op or Manual Retry
+            await telegramService.getUpdates();
         }
 
         class DeltaRestClient {
