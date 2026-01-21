@@ -1036,6 +1036,11 @@
                 const emoji = rate > 0 ? '🟢' : '🔴';
                 const direction = rate > 0 ? 'Positive (Longs Pay Shorts)' : 'Negative (Shorts Pay Longs)';
 
+                // Format Time: Xh Ym
+                const h = Math.floor(minutesLeft / 60);
+                const m = minutesLeft % 60;
+                const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+
                 const msg = `
 🚨 **Funding Opportunity Alert** 🚨
 
@@ -1043,7 +1048,7 @@
 **Funding Rate:** ${emoji} **${rate.toFixed(4)}%**
 **Details:** ${direction}
 **Window:** ${intervalHours}h Cycle
-**Time Left:** ⏳ **${minutesLeft} mins**
+**Time Left:** ⏳ **${timeStr}**
 
 _Bot is monitoring for entry..._
 `;
