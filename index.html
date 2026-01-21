@@ -1020,11 +1020,11 @@
                     const secondsRemaining = getSecondsToNextFunding(intervalSeconds);
                     const minutesLeft = Math.floor(secondsRemaining / 60);
 
-                    if (minutesLeft > 15) return;
+                    // if (minutesLeft > 15) return;
 
                     // DEBOUNCE: Check if sent in last 1 hour (3600000 ms)
                     const lastSent = this.alertHistory[p.symbol];
-                    if (lastSent && (Date.now() - lastSent) < 3600000) return;
+                    if (lastSent && (Date.now() - lastSent) < 900000) return;
 
                     // SEND ALERT
                     this.sendFundingAlert(p, fundingRate, minutesLeft, intervalSeconds);
