@@ -1029,7 +1029,7 @@
 
                 top5.forEach((item, index) => {
                     const emoji = item.rate > 0 ? '🟢' : '🔴';
-                    msg += `${index + 1}. \`${item.symbol}\`: ${emoji} **${(item.rate * 100).toFixed(4)}%**\n`;
+                    msg += `${index + 1}. \`${item.symbol}\`: ${emoji} **${item.rate.toFixed(4)}%**\n`;
                 });
 
                 msg += `\n_Auto-refreshing every 1 min..._`;
