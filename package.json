@@ -1,0 +1,14 @@
+{
+  "name": "antigravity-delta-bot",
+  "version": "1.0.0",
+  "description": "24/7 Funding Rate Monitor Bot",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.9",
+    "crypto-js": "^4.1.1"
+  }
+}
