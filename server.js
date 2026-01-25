@@ -29,15 +29,27 @@ app.get('/', (req, res) => {
         // OR we can rely on a specific placeholder pattern if we had one.
         // But since we want to overwrite whatever is there (even if hardcoded dev keys):
 
-        if (API_KEY) html = html.replace(/API_KEY:\s*['"][^'"]*['"]/, `API_KEY: '${API_KEY}'`);
-        if (API_SECRET) html = html.replace(/API_SECRET:\s*['"][^'"]*['"]/, `API_SECRET: '${API_SECRET}'`);
-        if (TELEGRAM_TOKEN) html = html.replace(/TELEGRAM_TOKEN:\s*['"][^'"]*['"]/, `TELEGRAM_TOKEN: '${TELEGRAM_TOKEN}'`);
+        if (API_KEY) {
+            html = html.replace(/API_KEY:\s*['"][^'"]*['"]/, `API_KEY: '${API_KEY}'`);
+            console.log("✅ Injected API_KEY");
+        }
+        if (API_SECRET) {
+            html = html.replace(/API_SECRET:\s*['"][^'"]*['"]/, `API_SECRET: '${API_SECRET}'`);
+            console.log("✅ Injected API_SECRET");
+        }
+        if (TELEGRAM_TOKEN) {
+            html = html.replace(/TELEGRAM_TOKEN:\s*['"][^'"]*['"]/, `TELEGRAM_TOKEN: '${TELEGRAM_TOKEN}'`);
+            console.log("✅ Injected TELEGRAM_TOKEN");
+        }
         // We can also inject Chat ID if we have it
         if (TELEGRAM_CHAT_ID) {
             // If local storage reads null, this fallback in logic might not be enough unless we inject into the CONFIG default.
             // CONFIG has `TELEGRAM_CHAT_ID: localStorage... || null`
             // We can replace `|| null` with `|| '${TELEGRAM_CHAT_ID}'`
             html = html.replace(/\|\|\s*null/, `|| '${TELEGRAM_CHAT_ID}'`);
+            console.log(`✅ Injected Chat ID: ${TELEGRAM_CHAT_ID}`);
+        } else {
+            console.log("⚠️ No TELEGRAM_CHAT_ID found in Env Vars (Frontend will rely on local storage)");
         }
 
         res.send(html);
@@ -67,18 +79,13 @@ class TelegramService {
             const response = await fetch(`${this.baseUrl}/getUpdates`);
             const data = await response.json();
             if (data.ok && data.result.length > 0) {
-                console.log("📨 Telegram Updates Received:", JSON.stringify(data.result).substring(0, 500) + "..."); // Scan logs for "id": -100...
-
-                // Find last message OR chat member update (when bot is added)
-                const lastUpdate = data.result.reverse().find(u => (u.message && u.message.chat) || (u.my_chat_member && u.my_chat_member.chat));
-
-                if (lastUpdate) {
-                    const chat = lastUpdate.message ? lastUpdate.message.chat : lastUpdate.my_chat_member.chat;
-                    TELEGRAM_CHAT_ID = chat.id;
-                    const type = chat.type;
-                    console.log(`✅ FOUND CHAT ID: ${TELEGRAM_CHAT_ID} (${type})`);
-
-                    this.sendMessage(`✅ Antigravity Connected to ${type}! ID: ${TELEGRAM_CHAT_ID}`);
+                // Find last message (Private or Group)
+                const lastMsg = data.result.reverse().find(u => u.message && u.message.chat);
+                if (lastMsg) {
+                    TELEGRAM_CHAT_ID = lastMsg.message.chat.id;
+                    const type = lastMsg.message.chat.type;
+                    console.log(`Telegram Chat ID Found: ${TELEGRAM_CHAT_ID} (${type})`);
+                    this.sendMessage(`✅ Antigravity Background Bot Connected to ${type}!`);
                     return true;
                 }
             }
