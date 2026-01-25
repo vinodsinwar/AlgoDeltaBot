@@ -67,12 +67,13 @@ class TelegramService {
             const response = await fetch(`${this.baseUrl}/getUpdates`);
             const data = await response.json();
             if (data.ok && data.result.length > 0) {
-                // Find last private message
-                const lastMsg = data.result.reverse().find(u => u.message && u.message.chat.type === 'private');
+                // Find last message (Private or Group)
+                const lastMsg = data.result.reverse().find(u => u.message && u.message.chat);
                 if (lastMsg) {
                     TELEGRAM_CHAT_ID = lastMsg.message.chat.id;
-                    console.log(`Telegram Chat ID Found: ${TELEGRAM_CHAT_ID}`);
-                    this.sendMessage("✅ Antigravity Background Bot Connected!");
+                    const type = lastMsg.message.chat.type;
+                    console.log(`Telegram Chat ID Found: ${TELEGRAM_CHAT_ID} (${type})`);
+                    this.sendMessage(`✅ Antigravity Background Bot Connected to ${type}!`);
                     return true;
                 }
             }

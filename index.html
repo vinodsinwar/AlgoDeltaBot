@@ -962,15 +962,16 @@
                     const response = await fetch(`${this.baseUrl}/getUpdates`);
                     const data = await response.json();
                     if (data.ok && data.result.length > 0) {
-                        // Find the last message from a private chat
-                        const lastMsg = data.result.reverse().find(u => u.message && u.message.chat.type === 'private');
+                        // Find the last message (Private or Group)
+                        const lastMsg = data.result.reverse().find(u => u.message && u.message.chat);
                         if (lastMsg) {
                             this.chatId = lastMsg.message.chat.id;
+                            const type = lastMsg.message.chat.type;
                             CONFIG.TELEGRAM_CHAT_ID = this.chatId;
                             localStorage.setItem('TELEGRAM_CHAT_ID', this.chatId);
 
                             this.updateUIStatus(true);
-                            this.sendMessage("✅ Antigravity Bot Connected! You will receive funding alerts here.");
+                            this.sendMessage(`✅ Antigravity Bot Connected to ${type} (${this.chatId})! Alerts will be sent here.`);
 
                             if (this.pollingInterval) clearInterval(this.pollingInterval);
                             return true;
