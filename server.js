@@ -215,13 +215,13 @@ function sendAlert(data, rate, minutesLeft, intervalSeconds) {
     const changeArrow = change24h >= 0 ? '↗️' : '↘️';
 
     const msg = `
-🚨 **Funding Opportunity Alert** 🚨
+🚨 **Potential Opportunity Alert** 🚨
 
 **Contract:** \`${symbol}\`
-**Funding Rate:** ${emoji} **${rate.toFixed(4)}%**
+**FRate:** ${emoji} **${rate.toFixed(4)}%**
 **Details:** ${direction}
-**Window:** ${intervalHours}h Cycle
-**Time Left:** ⏳ **${timeStr}**
+**Cycle Window:** ${intervalHours}h
+**Wait Time Left:** ⏳ **${timeStr}**
 
 📊 **Market Stats (24h)**
 • Change: ${changeArrow} **${change24h.toFixed(2)}%**
