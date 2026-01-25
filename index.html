@@ -1012,8 +1012,8 @@
                     const fundingRate = parseFloat(data.funding_rate);
                     const absFunding = Math.abs(fundingRate);
 
-                    // CRITERIA 1: Funding >= 0.5% (Positive or Negative)
-                    if (absFunding < 0.50) return;
+                    // CRITERIA 1: Funding >= 0.35% (Positive or Negative)
+                    if (absFunding < 0.35) return;
 
                     // CRITERIA 2: Window Left <= 15 mins
                     const intervalSeconds = data.product_specs?.rate_exchange_interval || 28800;

@@ -175,8 +175,8 @@ function checkOpportunity(ticker, productSpec) {
     // This means raw value IS percentage.
     // So `parseFloat(ticker.funding_rate)` is the percentage value.
 
-    // ALERT CRITERIA NO. 1: Funding >= 0.5%
-    if (Math.abs(fundingRate) < 0.50) return;
+    // ALERT CRITERIA NO. 1: Funding >= 0.35%
+    if (Math.abs(fundingRate) < 0.35) return;
 
     // DEBOUNCE: 15 Minutes (900000 ms)
     const lastSent = alertHistory[symbol];
