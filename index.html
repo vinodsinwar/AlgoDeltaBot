@@ -1001,7 +1001,7 @@
             }
 
 
-            // LIVE MODE: Standard Alert Logic
+            // LIVE MODE: Updated Alert Logic (>= 0.35%, Every 15m)
             checkAlerts() {
                 if (!this.chatId) return;
 
@@ -1015,23 +1015,23 @@
                     // CRITERIA 1: Funding >= 0.35% (Positive or Negative)
                     if (absFunding < 0.35) return;
 
-                    // CRITERIA 2: Window Left <= 15 mins
+                    // Calc Time for Info Only
                     const intervalSeconds = data.product_specs?.rate_exchange_interval || 28800;
                     const secondsRemaining = getSecondsToNextFunding(intervalSeconds);
                     const minutesLeft = Math.floor(secondsRemaining / 60);
 
-                    // if (minutesLeft > 15) return;
+                    // REMOVED check for minutesLeft > 15
 
-                    // DEBOUNCE: Check if sent in last 1 hour (3600000 ms)
+                    // DEBOUNCE: Check if sent in last 15 mins (900000 ms)
                     const lastSent = this.alertHistory[p.symbol];
                     if (lastSent && (Date.now() - lastSent) < 900000) return;
 
                     // SEND ALERT
-                    this.sendFundingAlert(p, fundingRate, minutesLeft, intervalSeconds);
+                    this.sendFundingAlert(p, data, fundingRate, minutesLeft, intervalSeconds);
                 });
             }
 
-            sendFundingAlert(product, rate, minutesLeft, intervalSeconds) {
+            sendFundingAlert(product, data, rate, minutesLeft, intervalSeconds) {
                 const intervalHours = intervalSeconds / 3600;
                 const emoji = rate > 0 ? '🟢' : '🔴';
                 const direction = rate > 0 ? 'Positive (Longs Pay Shorts)' : 'Negative (Shorts Pay Longs)';
@@ -1041,6 +1041,14 @@
                 const m = minutesLeft % 60;
                 const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
 
+                // Additional Stats
+                const change24h = getChange24h(data);
+                const vol24h = formatVolume(data.turnover_usd || 0);
+                const oi = formatVolume(parseFloat(data.oi_value_usd || 0));
+
+                // Format change with arrow
+                const changeArrow = change24h >= 0 ? '↗️' : '↘️';
+
                 const msg = `
 🚨 **Funding Opportunity Alert** 🚨
 
@@ -1049,6 +1057,11 @@
 **Details:** ${direction}
 **Window:** ${intervalHours}h Cycle
 **Time Left:** ⏳ **${timeStr}**
+
+📊 **Market Stats (24h)**
+• Change: ${changeArrow} **${change24h.toFixed(2)}%**
+• Volume: **${vol24h}**
+• Open Interest: **${oi}**
 
 _Bot is monitoring for entry..._
 `;

@@ -156,24 +156,15 @@ async function botLoop() {
 
 function checkOpportunity(ticker, productSpec) {
     const symbol = ticker.symbol;
-    const fundingRate = parseFloat(ticker.funding_rate); // e.g. 0.005
-    const absFunding = Math.abs(fundingRate * 100); // Convert to % for easier check? 
-    // Wait, API returns decimal? e.g. 0.0001 for 0.01%
-    // In index.html we did `parseFloat(data.funding_rate)`.
-    // If API returns "0.0050", that is 0.50%? Or is it 0.50? 
-    // Let's cross-check usage in index.html.
-    // In index.html: `const absFunding = Math.abs(parseFloat(data.funding_rate));`
-    // And condition `if (absFunding < 0.50) return`.
-    // This implies the API returns PERCENTAGE value directly as string? 
-    // OR the user adjusted logic.
-    // Step 942 Verification: User saw "-1.4787%" and logic was `toFixed(4)`.
-    // If raw was 0.014787, toFixed(4) -> 0.0148. That's not -1.47%.
-    // So the API returns the Percentage Value? 
-    // Or I need to multiply by 100.
-    // Re-reading Step 942: I updated `sendFundingAlert` to display `rate.toFixed(4)`.
-    // If raw was -1.4787, then `toFixed(4)` is -1.4787. 
-    // This means raw value IS percentage.
-    // So `parseFloat(ticker.funding_rate)` is the percentage value.
+    const fundingRate = parseFloat(ticker.funding_rate);
+    const absFunding = Math.abs(fundingRate); // Delta returns actual value e.g. 0.005 for 0.5% NO, Step 942 said 1.478% is returned as -1.4787.
+    // Wait, verification step 1098 said "if (Math.abs(fundingRate) < 0.35) return;".
+    // If API returns 0.0035 for 0.35%, then 0.0035 < 0.35 is true.
+    // BUT Step 942 User Screenshot shows "-1.4968%".
+    // If Raw was -0.0149 (1.49%), then toFixed(4) would be -0.0150.
+    // The user screenshot shows "-1.4968%".
+    // This implies the RAW value is indeed Percentage (e.g. -1.4968).
+    // So my backend check `fundingRate < 0.35` is correct for Percentage value.
 
     // ALERT CRITERIA NO. 1: Funding >= 0.35%
     if (Math.abs(fundingRate) < 0.35) return;
@@ -182,19 +173,17 @@ function checkOpportunity(ticker, productSpec) {
     const lastSent = alertHistory[symbol];
     if (lastSent && (Date.now() - lastSent) < 900000) return;
 
-    // ALERT CRITERIA NO. 2: Window Check (REMOVED)
-    // We only calculate it for display.
-
     // Calc Time Left
     const intervalSeconds = productSpec.rate_exchange_interval || 28800; // 8h default
     const secondsRemaining = getSecondsToNextFunding(intervalSeconds);
     const minutesLeft = Math.floor(secondsRemaining / 60);
 
     // Format Alert
-    sendAlert(symbol, fundingRate, minutesLeft, intervalSeconds);
+    sendAlert(ticker, fundingRate, minutesLeft, intervalSeconds);
 }
 
-function sendAlert(symbol, rate, minutesLeft, intervalSeconds) {
+function sendAlert(data, rate, minutesLeft, intervalSeconds) {
+    const symbol = data.symbol;
     const intervalHours = intervalSeconds / 3600;
     const emoji = rate > 0 ? '🟢' : '🔴';
     const direction = rate > 0 ? 'Positive (Longs Pay Shorts)' : 'Negative (Shorts Pay Longs)';
@@ -203,6 +192,14 @@ function sendAlert(symbol, rate, minutesLeft, intervalSeconds) {
     const h = Math.floor(minutesLeft / 60);
     const m = minutesLeft % 60;
     const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+
+    // Stats
+    // Try to handle varied API response keys
+    const change24h = parseFloat(data.mark_change_24h || data.price_change_percent_24h || 0);
+    const turnover = parseFloat(data.turnover_usd || data.volume_24h || 0);
+    const oi = parseFloat(data.oi_value_usd || data.open_interest || 0);
+
+    const changeArrow = change24h >= 0 ? '↗️' : '↘️';
 
     const msg = `
 🚨 **Funding Opportunity Alert** 🚨
@@ -213,12 +210,26 @@ function sendAlert(symbol, rate, minutesLeft, intervalSeconds) {
 **Window:** ${intervalHours}h Cycle
 **Time Left:** ⏳ **${timeStr}**
 
+📊 **Market Stats (24h)**
+• Change: ${changeArrow} **${change24h.toFixed(2)}%**
+• Volume: **${formatVolume(turnover)}**
+• Open Interest: **${formatVolume(oi)}**
+
 _Background Bot is monitoring..._
 `;
 
     telegram.sendMessage(msg);
     alertHistory[symbol] = Date.now();
     console.log(`Alert sent for ${symbol}`);
+}
+
+// Helper: Format Volume (K/M/B)
+function formatVolume(num) {
+    if (!num) return '$0';
+    if (num >= 1000000000) return '$' + (num / 1000000000).toFixed(2) + 'B';
+    if (num >= 1000000) return '$' + (num / 1000000).toFixed(2) + 'M';
+    if (num >= 1000) return '$' + (num / 1000).toFixed(2) + 'K';
+    return '$' + num.toFixed(2);
 }
 
 // Helper: Time Calculation
