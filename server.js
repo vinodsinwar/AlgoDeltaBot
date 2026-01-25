@@ -12,12 +12,43 @@ let TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || null;
 
 const REST_API_URL = 'https://api.india.delta.exchange';
 
-// --- EXPRESS SERVER (Health Check) ---
+const fs = require('fs');
+const path = require('path');
+
+// --- EXPRESS SERVER (Health Check + Frontend) ---
 const app = express();
 
+// Serve the Frontend
 app.get('/', (req, res) => {
-    res.send('✅ Antigravity Bot is Running 24/7! (v1.0.0)');
+    try {
+        // Read the HTML file
+        let html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+
+        // Inject Environment Variables from Render into the Frontend CONFIG
+        // We look for the existing hardcoded values and replace them, 
+        // OR we can rely on a specific placeholder pattern if we had one.
+        // But since we want to overwrite whatever is there (even if hardcoded dev keys):
+
+        if (API_KEY) html = html.replace(/API_KEY:\s*['"][^'"]*['"]/, `API_KEY: '${API_KEY}'`);
+        if (API_SECRET) html = html.replace(/API_SECRET:\s*['"][^'"]*['"]/, `API_SECRET: '${API_SECRET}'`);
+        if (TELEGRAM_TOKEN) html = html.replace(/TELEGRAM_TOKEN:\s*['"][^'"]*['"]/, `TELEGRAM_TOKEN: '${TELEGRAM_TOKEN}'`);
+        // We can also inject Chat ID if we have it
+        if (TELEGRAM_CHAT_ID) {
+            // If local storage reads null, this fallback in logic might not be enough unless we inject into the CONFIG default.
+            // CONFIG has `TELEGRAM_CHAT_ID: localStorage... || null`
+            // We can replace `|| null` with `|| '${TELEGRAM_CHAT_ID}'`
+            html = html.replace(/\|\|\s*null/, `|| '${TELEGRAM_CHAT_ID}'`);
+        }
+
+        res.send(html);
+    } catch (e) {
+        console.error("Error serving frontend:", e);
+        res.status(500).send("Error loading dashboard.");
+    }
 });
+
+// Remove simple text response
+// app.get('/', ...);
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
