@@ -140,9 +140,8 @@ async function runScan() {
         }
 
         // --- BUILD ALL-IN-ONE TABLE ---
-        let msg = `🧪 **Profit Rate Scan** 🧪\n`;
-        msg += `_Threshold: > ±0.35%_\n`;
-        msg += `_Legend: 🔴 Shorts Pay Longs | 🟢 Longs Pay Shorts_\n\n`;
+        let msg = `🧪 **Profit Rate Scan** 🧪 TH: > ±0.35%\n`;
+        msg += `_Legends: 🔴 Pay 🟢 | 🟢 Pay 🔴_\n\n`;
 
         msg += "```\n";
         // Header: Compact columns
