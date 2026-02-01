@@ -140,7 +140,7 @@ async function runScan() {
         }
 
         // --- BUILD ALL-IN-ONE TABLE ---
-        let msg = `🧪 **Funding Rate Scan** 🧪\n`;
+        let msg = `🧪 **Profit Rate Scan** 🧪\n`;
         msg += `_Threshold: > ±0.35%_\n`;
         msg += `_Legend: 🔴 Shorts Pay Longs | 🟢 Longs Pay Shorts_\n\n`;
 
