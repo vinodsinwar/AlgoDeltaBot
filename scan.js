@@ -197,7 +197,7 @@ async function runScan() {
         });
         msg += "```\n";
         msg += `_All values in USD_\n\n`;
-        msg += `🚀 _Mission 2026: Multi-Millionaire Status_ 💎\n`;
+        msg += `2026 Crypto: Discipline and right leverage - multi-millionaire throne claimed.🔥💎\n`;
 
         console.log("--- GENERATED MESSAGE PREVIEW ---");
         console.log(msg);
