@@ -146,9 +146,8 @@ async function runScan() {
 
         msg += "```\n";
         // Header: Compact columns
-        // Sym(8) Rate(7) Time(6) Vol(6) OI(6) Chg(5)
-        // With spaces between:
-        msg += "Sym      Rate%   Wait   Vol    OI     24h%\n";
+        // CT(8) RT %(7) WT(6) Vol(6) OI(6) 24h%(5)
+        msg += "CT       RT %    WT     Vol    OI     24h%\n";
         msg += "----------------------------------------------\n";
 
         opportunities.forEach(opp => {
