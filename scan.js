@@ -197,6 +197,7 @@ async function runScan() {
         });
         msg += "```\n";
         msg += `_All values in USD_\n`;
+        msg += `_Mission of 10 cr in 2026 :)_\n`;
 
         console.log("--- GENERATED MESSAGE PREVIEW ---");
         console.log(msg);
