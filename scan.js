@@ -134,10 +134,16 @@ async function runScan() {
         msg += `TH: > ±0.35% | Short = Pay | Long = Receive\n\n`;
 
         msg += "```\n";
-        // Header: Ultra-Compact columns
-        // CT(6) RT%(6) WT(5) Vol(5) OI(5) 24h%(5)
-        msg += "CT    RT%   WT   Vol  OI   24h%\n";
-        msg += "----------------------------------\n";
+        // Header: Exact Alignment (Sym:6, Rate:6, Time:5, Vol:5, OI:5, Chg:5)
+        let hSym = "CT".padEnd(6, ' ');
+        let hRate = "RT%".padEnd(6, ' ');
+        let hTime = "WT".padEnd(5, ' ');
+        let hVol = "Vol".padEnd(5, ' ');
+        let hOI = "OI".padEnd(5, ' ');
+        let hChg = "24h%".padEnd(5, ' ');
+
+        msg += `${hSym} ${hRate} ${hTime} ${hVol} ${hOI} ${hChg}\n`;
+        msg += "--------------------------------------\n";
 
         opportunities.forEach(opp => {
             // 1. Symbol: Max 6 (e.g. BIGTIM)
