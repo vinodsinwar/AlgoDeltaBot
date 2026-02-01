@@ -218,9 +218,9 @@ function sendAlert(data, rate, minutesLeft, intervalSeconds) {
 🚨 **Potential Opportunity Alert** 🚨
 
 **Contract:** \`${symbol}\`
-**FRate:** ${emoji} **${rate.toFixed(4)}%**
+**SRate:** ${emoji} **${rate.toFixed(4)}%**
 **Details:** ${direction}
-**Cycle Window:** ${intervalHours}h
+**Session Cycle:** ${intervalHours}h
 **Wait Time Left:** ⏳ **${timeStr}**
 
 📊 **Market Stats (24h)**
