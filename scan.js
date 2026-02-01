@@ -131,7 +131,7 @@ async function runScan() {
             now.getUTCMinutes().toString().padStart(2, '0');
 
         let msg = `## ${seq} - Profit Alert Scan 🔥💎\n`;
-        msg += `TH: > ±0.35% | Legend: Short = Pay | Long = Receive\n\n`;
+        msg += `TH: > ±0.35% | Short = Pay | Long = Receive\n\n`;
 
         msg += "```\n";
         // Header: Ultra-Compact columns
