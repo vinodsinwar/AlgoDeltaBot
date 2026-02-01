@@ -152,7 +152,8 @@ async function runScan() {
 
         opportunities.forEach(opp => {
             // 1. Symbol: Max 8 (Truncated later)
-            let sym = opp.symbol.replace('1000', '').replace('USDT', '');
+            // Remove 1000, USDT, and USD suffix
+            let sym = opp.symbol.replace('1000', '').replace(/USDT?$/, '');
             if (sym.length > 8) sym = sym.substring(0, 8);
 
             // 2. Rate: -0.945 (6 chars)
@@ -195,7 +196,7 @@ async function runScan() {
             msg += `${pSym} ${pRate} ${pTime} ${pVol} ${pOI} ${pChg}\n`;
         });
         msg += "```\n";
-        msg += `_Note: Vol/OI in USD_\n`;
+        msg += `_All values in USD_\n`;
 
         console.log("--- GENERATED MESSAGE PREVIEW ---");
         console.log(msg);
