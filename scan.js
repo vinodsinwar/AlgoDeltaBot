@@ -134,15 +134,15 @@ async function runScan() {
         msg += `TH: > ±0.35% | Legend: Short = Pay | Long = Receive\n\n`;
 
         msg += "```\n";
-        // Header: Compact columns (Tightened)
-        // CT(7) RT%(6) WT(6) Vol(5) OI(5) 24h%(5)
-        msg += "CT      RT%    WT    Vol   OI    24h%\n";
-        msg += "--------------------------------------\n";
+        // Header: Ultra-Compact columns
+        // CT(6) RT%(6) WT(5) Vol(5) OI(5) 24h%(5)
+        msg += "CT    RT%   WT   Vol  OI   24h%\n";
+        msg += "----------------------------------\n";
 
         opportunities.forEach(opp => {
-            // 1. Symbol: Max 7 (e.g. BIGTIME)
+            // 1. Symbol: Max 6 (e.g. BIGTIM)
             let sym = opp.symbol.replace('1000', '').replace(/USDT?$/, '');
-            if (sym.length > 7) sym = sym.substring(0, 7);
+            if (sym.length > 6) sym = sym.substring(0, 6);
 
             // 2. Rate: 6 chars (-0.980 or +0.500)
             let rateStr = opp.rate.toFixed(3);
@@ -150,12 +150,12 @@ async function runScan() {
             // Strict truncate to 6
             if (rateStr.length > 6) rateStr = rateStr.substring(0, 6);
 
-            // 3. Time: 6h25m
+            // 3. Time: 5 chars (e.g. 5h12)
             const secondsRemaining = getSecondsToNextFunding(opp.interval);
             const h = Math.floor(secondsRemaining / 3600);
             const m = Math.floor((secondsRemaining % 3600) / 60);
-            let timeStr = `${h}h${m}m`;
-            if (h === 0) timeStr = `${m}m`;
+            // Format: 5h12 (drop 'm' char)
+            let timeStr = `${h}h${m.toString().padStart(2, '0')}`;
 
             // 4. Vol: 5 chars 
             let volStr = formatShort(opp.turnover);
@@ -170,9 +170,9 @@ async function runScan() {
             // Pad and Layout
             // Strict Truncate
 
-            let pSym = sym.substring(0, 7).padEnd(7, ' ');
+            let pSym = sym.substring(0, 6).padEnd(6, ' ');
             let pRate = rateStr.substring(0, 6).padEnd(6, ' ');
-            let pTime = timeStr.substring(0, 6).padEnd(6, ' ');
+            let pTime = timeStr.substring(0, 5).padEnd(5, ' ');
             let pVol = volStr.substring(0, 5).padEnd(5, ' ');
             let pOI = oiStr.substring(0, 5).padEnd(5, ' ');
             let pChg = chgStr.substring(0, 5).padEnd(5, ' ');
