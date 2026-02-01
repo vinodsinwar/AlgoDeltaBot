@@ -1,9 +1,8 @@
 const fetch = require('node-fetch');
 
 // --- CONFIGURATION ---
-// Environment Variables (Set these in Render Cron Job)
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '8327311469:AAFl4m0qbzJSCCRcCQUH1RUGNW-J98f40Co';
-let TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID; // Must be set for Cron, or we fail (cannot poll updates reliably in run-once)
+let TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 const REST_API_URL = 'https://api.india.delta.exchange';
 
@@ -43,6 +42,20 @@ class TelegramService {
             return;
         }
 
+        // Split message if > 4096 characters
+        const MAX_LENGTH = 4000;
+        if (text.length <= MAX_LENGTH) {
+            await this.sendChunk(text);
+        } else {
+            console.log(`⚠️ Message too long (${text.length} chars). Splitting...`);
+            const chunks = text.match(new RegExp(`.{1,${MAX_LENGTH}}`, 'g'));
+            for (const chunk of chunks) {
+                await this.sendChunk(chunk);
+            }
+        }
+    }
+
+    async sendChunk(text) {
         try {
             await fetch(`${this.baseUrl}/sendMessage`, {
                 method: 'POST',
@@ -62,22 +75,34 @@ class TelegramService {
 
 const telegram = new TelegramService();
 
+// --- FORMATTING HELPERS ---
+function formatVolume(num) {
+    if (!num) return '$0';
+    if (num >= 1000000000) return '$' + (num / 1000000000).toFixed(2) + 'B';
+    if (num >= 1000000) return '$' + (num / 1000000).toFixed(2) + 'M';
+    if (num >= 1000) return '$' + (num / 1000).toFixed(2) + 'K';
+    return '$' + num.toFixed(2);
+}
+
+function getSecondsToNextFunding(intervalSeconds) {
+    const now = Math.floor(Date.now() / 1000);
+    const nextFunding = Math.ceil(now / intervalSeconds) * intervalSeconds;
+    return nextFunding - now;
+}
+
 // --- MAIN LOGIC ---
 async function runScan() {
-    console.log("🚀 Starting Cron Scan...");
+    console.log("🚀 Starting Cron Scan (Hybrid Mode)...");
 
     try {
-        // 1. Fetch Tickers
         const tickersResp = await fetch(`${REST_API_URL}/v2/tickers`);
         const tickersData = await tickersResp.json();
         const tickers = tickersData.result;
 
-        // 2. Fetch Products (for specs like interval)
         const productsResp = await fetch(`${REST_API_URL}/v2/products`);
         const productsData = await productsResp.json();
         const products = productsData.result;
 
-        // 3. Process & Filter
         const opportunities = [];
 
         tickers.forEach(ticker => {
@@ -86,21 +111,27 @@ async function runScan() {
             const fundingRate = parseFloat(ticker.funding_rate);
             const absFunding = Math.abs(fundingRate);
 
-            // Filter Criteria: > 0.35%
             if (absFunding < 0.35) return;
 
             const productSpec = products.find(p => p.symbol === ticker.symbol);
             if (!productSpec) return;
 
+            // Extra Stats
+            const change24h = parseFloat(ticker.mark_change_24h || ticker.price_change_percent_24h || 0);
+            const turnover = parseFloat(ticker.turnover_usd || ticker.volume_24h || 0);
+            const oi = parseFloat(ticker.oi_value_usd || ticker.open_interest || 0);
+
             opportunities.push({
                 symbol: ticker.symbol,
                 rate: fundingRate,
                 absRate: absFunding,
-                interval: productSpec.rate_exchange_interval || 28800
+                interval: productSpec.rate_exchange_interval || 28800,
+                change24h,
+                turnover,
+                oi
             });
         });
 
-        // 4. Sort (Highest Absolute Rate First)
         opportunities.sort((a, b) => b.absRate - a.absRate);
 
         if (opportunities.length === 0) {
@@ -108,46 +139,58 @@ async function runScan() {
             process.exit(0);
         }
 
-        // 5. Build Tabular Message
-        // Header
+        // --- BUILD HYBRID MESSAGE ---
         let msg = `🧪 **Funding Rate Scan** 🧪\n`;
-        msg += `_Threshold: > ±0.35%_\n\n`;
+        msg += `_Found ${opportunities.length} opportunities > 0.35%_\n\n`;
 
-        // Table Header Code Block
+        // 1. MINI TABLE (Summary)
         msg += "```\n";
-        msg += "Sym      Rate     Time\n";
-        msg += "----------------------\n";
+        msg += "Sym      Rate     Time    Vol\n";
+        msg += "------------------------------\n";
 
         opportunities.forEach(opp => {
-            // Symbol Truncate (max 8 chars for table align)
             let sym = opp.symbol.replace('1000', '').replace('USDT', '');
-            // e.g. 1000SHIBUSDT -> SHIB
-            // e.g. BTCUSDT -> BTC
-            if (sym.length > 8) sym = sym.substring(0, 8);
+            if (sym.length > 7) sym = sym.substring(0, 7);
 
-            // Rate Format
-            const rateStr = opp.rate > 0 ? `+${opp.rate.toFixed(3)}` : `${opp.rate.toFixed(3)}`; // +0.500 or -1.200
+            const rateStr = opp.rate > 0 ? `+${opp.rate.toFixed(3)}` : `${opp.rate.toFixed(3)}`;
 
-            // Time Calc
             const secondsRemaining = getSecondsToNextFunding(opp.interval);
             const h = Math.floor(secondsRemaining / 3600);
             const m = Math.floor((secondsRemaining % 3600) / 60);
             const timeStr = `${h}h${m}m`;
 
-            // Padding
-            const pSym = sym.padEnd(8, ' ');
-            const pRate = rateStr.padEnd(8, ' ');
-            const pTime = timeStr;
+            const volStr = formatVolume(opp.turnover).replace('$', '');
 
-            msg += `${pSym} ${pRate} ${pTime}\n`;
+            msg += `${sym.padEnd(7)} ${rateStr.padEnd(7)} ${timeStr.padEnd(7)} ${volStr}\n`;
         });
-        msg += "```";
+        msg += "```\n\n";
 
-        console.log("--- GENERATED MESSAGE ---");
+        // 2. DETAILED BREAKDOWN
+        msg += "**📋 Detailed Breakdown**\n\n";
+
+        opportunities.forEach((opp, index) => {
+            const emoji = opp.rate > 0 ? '🟢' : '🔴';
+            const direction = opp.rate > 0 ? 'Positive (Longs Pay Shorts)' : 'Negative (Shorts Pay Longs)';
+
+            const secondsRemaining = getSecondsToNextFunding(opp.interval);
+            const h = Math.floor(secondsRemaining / 3600);
+            const m = Math.floor((secondsRemaining % 3600) / 60);
+            const timeStr = `${h}h${m}m`;
+
+            const intervalHours = opp.interval / 3600;
+            const changeArrow = opp.change24h >= 0 ? '↗️' : '↘️';
+
+            msg += `**${index + 1}. ${opp.symbol}**\n`;
+            msg += `   FRate: ${emoji} **${opp.rate.toFixed(4)}%**\n`;
+            msg += `   Details: ${direction}\n`;
+            msg += `   Cycle: ${intervalHours}h | Wait: ⏳ **${timeStr}**\n`;
+            msg += `   Stats: ${changeArrow} **${opp.change24h.toFixed(2)}%** | Vol: **${formatVolume(opp.turnover)}** | OI: **${formatVolume(opp.oi)}**\n\n`;
+        });
+
+        console.log("--- GENERATED MESSAGE PREVIEW ---");
         console.log(msg);
-        console.log("-------------------------");
+        console.log("---------------------------------");
 
-        // 6. Send
         await telegram.sendMessage(msg);
 
     } catch (e) {
@@ -156,12 +199,4 @@ async function runScan() {
     }
 }
 
-// Helper: Time Calculation
-function getSecondsToNextFunding(intervalSeconds) {
-    const now = Math.floor(Date.now() / 1000);
-    const nextFunding = Math.ceil(now / intervalSeconds) * intervalSeconds;
-    return nextFunding - now;
-}
-
-// Execute
 runScan();
