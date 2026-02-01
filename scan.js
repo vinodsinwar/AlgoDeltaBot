@@ -125,7 +125,12 @@ async function runScan() {
         }
 
         // --- BUILD ALL-IN-ONE TABLE ---
-        let msg = `🧪 **Profit Rate Scan** 🧪 TH: > ±0.35%\n`;
+        // Generate Time-Based Sequence ID (HHmm in UTC) to act as unique run ID
+        const now = new Date();
+        const seq = now.getUTCHours().toString().padStart(2, '0') +
+            now.getUTCMinutes().toString().padStart(2, '0');
+
+        let msg = `## ${seq} 🧪 **Profit Rate Scan** 🧪 TH: > ±0.35%\n`;
         msg += `_Legends: 🔴 Pay 🟢 | 🟢 Pay 🔴_\n\n`;
 
         msg += "```\n";
