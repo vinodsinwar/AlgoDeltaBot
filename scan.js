@@ -196,8 +196,8 @@ async function runScan() {
             msg += `${pSym} ${pRate} ${pTime} ${pVol} ${pOI} ${pChg}\n`;
         });
         msg += "```\n";
-        msg += `_All values in USD_\n`;
-        msg += `_Mission of 10 cr in 2026 :)_\n`;
+        msg += `_All values in USD_\n\n`;
+        msg += `🚀 _Mission 2026: Multi-Millionaire Status_ 💎\n`;
 
         console.log("--- GENERATED MESSAGE PREVIEW ---");
         console.log(msg);
