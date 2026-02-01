@@ -130,8 +130,8 @@ async function runScan() {
         const seq = now.getUTCHours().toString().padStart(2, '0') +
             now.getUTCMinutes().toString().padStart(2, '0');
 
-        let msg = `## ${seq} 🧪 **Profit Rate Scan** 🧪 TH: > ±0.35%\n`;
-        msg += `_Legends: 🔴 Pay 🟢 | 🟢 Pay 🔴_\n\n`;
+        let msg = `## ${seq} - Profit Rate Scan 🧪\n`;
+        msg += `TH: > ±0.35% | Legends: - Pay + | + Pay -\n\n`;
 
         msg += "```\n";
         // Header: Compact columns (Tightened)
