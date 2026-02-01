@@ -139,53 +139,64 @@ async function runScan() {
             process.exit(0);
         }
 
-        // --- BUILD HYBRID MESSAGE ---
+        // --- BUILD ALL-IN-ONE TABLE ---
         let msg = `🧪 **Funding Rate Scan** 🧪\n`;
-        msg += `_Found ${opportunities.length} opportunities > 0.35%_\n\n`;
+        msg += `_Threshold: > ±0.35%_\n`;
+        msg += `_Legend: 🔴 Shorts Pay Longs | 🟢 Longs Pay Shorts_\n\n`;
 
-        // 1. MINI TABLE (Summary)
         msg += "```\n";
-        msg += "Sym      Rate     Time    Vol\n";
-        msg += "------------------------------\n";
+        // Header: Compact columns
+        // Sym(8) Rate(7) Time(6) Vol(6) OI(6) Chg(5)
+        // With spaces between:
+        msg += "Sym      Rate%   Wait   Vol    OI     24h%\n";
+        msg += "----------------------------------------------\n";
 
         opportunities.forEach(opp => {
+            // 1. Symbol: Max 8 (Truncated later)
             let sym = opp.symbol.replace('1000', '').replace('USDT', '');
-            if (sym.length > 7) sym = sym.substring(0, 7);
+            if (sym.length > 8) sym = sym.substring(0, 8);
 
-            const rateStr = opp.rate > 0 ? `+${opp.rate.toFixed(3)}` : `${opp.rate.toFixed(3)}`;
+            // 2. Rate: -0.945 (6 chars)
+            // Remove + sign to save space if needed? No, Keep sign.
+            let rateStr = opp.rate.toFixed(3);
+            if (opp.rate > 0) rateStr = '+' + rateStr; // +0.500
 
+            // 3. Time: 6h25m (5-6 chars)
             const secondsRemaining = getSecondsToNextFunding(opp.interval);
             const h = Math.floor(secondsRemaining / 3600);
             const m = Math.floor((secondsRemaining % 3600) / 60);
-            const timeStr = `${h}h${m}m`;
+            let timeStr = `${h}h${m}m`;
+            // If 0h, just show XXm
+            if (h === 0) timeStr = `${m}m`;
 
+            // 4. Vol: 8.8M (4-5 chars)
+            // Remove '$'
             const volStr = formatVolume(opp.turnover).replace('$', '');
 
-            msg += `${sym.padEnd(7)} ${rateStr.padEnd(7)} ${timeStr.padEnd(7)} ${volStr}\n`;
+            // 5. OI: 250K (4-5 chars)
+            const oiStr = formatVolume(opp.oi).replace('$', '');
+
+            // 6. Chg: +56% -> +56 (3-4 chars)
+            // Remove % sign
+            let chgStr = opp.change24h.toFixed(1);
+            if (opp.change24h > 0) chgStr = '+' + chgStr;
+
+            // Pad and Layout
+            // Sym(8) Rate(7) Time(6) Vol(6) OI(6) Chg(5)
+            // Strict Truncate to ensure they respect the pad length
+
+            let pSym = sym.substring(0, 8).padEnd(8, ' ');
+            let pRate = rateStr.substring(0, 7).padEnd(7, ' ');
+            let pTime = timeStr.substring(0, 6).padEnd(6, ' ');
+            let pVol = volStr.substring(0, 6).padEnd(6, ' ');
+            let pOI = oiStr.substring(0, 6).padEnd(6, ' ');
+            let pChg = chgStr.substring(0, 5).padEnd(5, ' ');
+
+            // Add explicit space between columns
+            msg += `${pSym} ${pRate} ${pTime} ${pVol} ${pOI} ${pChg}\n`;
         });
-        msg += "```\n\n";
-
-        // 2. DETAILED BREAKDOWN
-        msg += "**📋 Detailed Breakdown**\n\n";
-
-        opportunities.forEach((opp, index) => {
-            const emoji = opp.rate > 0 ? '🟢' : '🔴';
-            const direction = opp.rate > 0 ? 'Positive (Longs Pay Shorts)' : 'Negative (Shorts Pay Longs)';
-
-            const secondsRemaining = getSecondsToNextFunding(opp.interval);
-            const h = Math.floor(secondsRemaining / 3600);
-            const m = Math.floor((secondsRemaining % 3600) / 60);
-            const timeStr = `${h}h${m}m`;
-
-            const intervalHours = opp.interval / 3600;
-            const changeArrow = opp.change24h >= 0 ? '↗️' : '↘️';
-
-            msg += `**${index + 1}. ${opp.symbol}**\n`;
-            msg += `   FRate: ${emoji} **${opp.rate.toFixed(4)}%**\n`;
-            msg += `   Details: ${direction}\n`;
-            msg += `   Cycle: ${intervalHours}h | Wait: ⏳ **${timeStr}**\n`;
-            msg += `   Stats: ${changeArrow} **${opp.change24h.toFixed(2)}%** | Vol: **${formatVolume(opp.turnover)}** | OI: **${formatVolume(opp.oi)}**\n\n`;
-        });
+        msg += "```\n";
+        msg += `_Note: Vol/OI in USD_\n`;
 
         console.log("--- GENERATED MESSAGE PREVIEW ---");
         console.log(msg);
