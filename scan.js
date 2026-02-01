@@ -194,9 +194,8 @@ async function runScan() {
             // Add explicit space between columns
             msg += `${pSym} ${pRate} ${pTime} ${pVol} ${pOI} ${pChg}\n`;
         });
-        msg += "```\n";
-        msg += `_All values in USD_\n\n`;
-        msg += `2026 Crypto: Discipline and right leverage - multi-millionaire throne claimed.🔥💎\n`;
+        msg += "```\n\n";
+        msg += `2026 : Discipline and right leverage - multi-millionaire throne claimed.🔥💎\n`;
 
         console.log("--- GENERATED MESSAGE PREVIEW ---");
         console.log(msg);
