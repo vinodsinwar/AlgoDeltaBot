@@ -134,54 +134,58 @@ async function runScan() {
         msg += `TH: > ±0.35% | Short = Pay | Long = Receive\n\n`;
 
         msg += "```\n";
-        // Header: Exact Alignment (Sym:6, Rate:6, Time:5, Vol:5, OI:5, Chg:5)
+        // Header: Mobile Optimized (Max 30 chars)
+        // CT(6) R%(5) T(3) V(4) OI(4) 24(3)
         let hSym = "CT".padEnd(6, ' ');
-        let hRate = "RT%".padEnd(6, ' ');
-        let hTime = "WT".padEnd(5, ' ');
-        let hVol = "Vol".padEnd(5, ' ');
-        let hOI = "OI".padEnd(5, ' ');
-        let hChg = "24h%".padEnd(5, ' ');
+        let hRate = "R%".padEnd(5, ' ');
+        let hTime = "T".padEnd(3, ' ');
+        let hVol = "V".padEnd(4, ' ');
+        let hOI = "OI".padEnd(4, ' ');
+        let hChg = "24h".padEnd(3, ' ');
 
         msg += `${hSym} ${hRate} ${hTime} ${hVol} ${hOI} ${hChg}\n`;
-        msg += "--------------------------------------\n";
+        msg += "------------------------------\n"; // 30 chars
 
         opportunities.forEach(opp => {
-            // 1. Symbol: Max 6 (e.g. BIGTIM)
+            // 1. Symbol: Max 6 (e.g. SOL)
             let sym = opp.symbol.replace('1000', '').replace(/USDT?$/, '');
             if (sym.length > 6) sym = sym.substring(0, 6);
 
-            // 2. Rate: 6 chars (-0.980 or +0.500)
+            // 2. Rate: 5 chars (-0.95)
             let rateStr = opp.rate.toFixed(3);
             if (opp.rate > 0) rateStr = '+' + rateStr;
-            // Strict truncate to 6
-            if (rateStr.length > 6) rateStr = rateStr.substring(0, 6);
+            // Truncate to 5
+            if (rateStr.length > 5) rateStr = rateStr.substring(0, 5);
 
-            // 3. Time: 5 chars (e.g. 5h12)
+            // 3. Time: 3 chars (5h or 59m)
             const secondsRemaining = getSecondsToNextFunding(opp.interval);
             const h = Math.floor(secondsRemaining / 3600);
             const m = Math.floor((secondsRemaining % 3600) / 60);
-            // Format: 5h12 (drop 'm' char)
-            let timeStr = `${h}h${m.toString().padStart(2, '0')}`;
+            let timeStr;
+            if (h >= 10) timeStr = `${h}h`;
+            else if (h > 0) timeStr = `${h}h`;
+            else timeStr = `${m}m`; // 59m or 05m
+            if (timeStr.length > 3) timeStr = timeStr.substring(0, 3); // Clip 59m
 
-            // 4. Vol: 5 chars 
-            let volStr = formatShort(opp.turnover);
+            // 4. Vol: 4 chars (10M, 999K)
+            let volStr = formatShortMobile(opp.turnover);
 
-            // 5. OI: 5 chars
-            let oiStr = formatShort(opp.oi);
+            // 5. OI: 4 chars
+            let oiStr = formatShortMobile(opp.oi);
 
-            // 6. Chg: +56% -> +56 (5 chars)
-            let chgStr = opp.change24h.toFixed(1);
-            if (opp.change24h > 0) chgStr = '+' + chgStr;
+            // 6. Chg: 3 chars (+25) (Integer only)
+            let chgVal = Math.round(opp.change24h);
+            let chgStr = chgVal.toString();
+            if (chgVal > 0) chgStr = '+' + chgVal;
+            if (chgStr.length > 3) chgStr = chgStr.substring(0, 3);
 
             // Pad and Layout
-            // Strict Truncate
-
             let pSym = sym.substring(0, 6).padEnd(6, ' ');
-            let pRate = rateStr.substring(0, 6).padEnd(6, ' ');
-            let pTime = timeStr.substring(0, 5).padEnd(5, ' ');
-            let pVol = volStr.substring(0, 5).padEnd(5, ' ');
-            let pOI = oiStr.substring(0, 5).padEnd(5, ' ');
-            let pChg = chgStr.substring(0, 5).padEnd(5, ' ');
+            let pRate = rateStr.substring(0, 5).padEnd(5, ' ');
+            let pTime = timeStr.substring(0, 3).padEnd(3, ' ');
+            let pVol = volStr.substring(0, 4).padEnd(4, ' ');
+            let pOI = oiStr.substring(0, 4).padEnd(4, ' ');
+            let pChg = chgStr.substring(0, 3).padEnd(3, ' ');
 
             // Add explicit space between columns
             msg += `${pSym} ${pRate} ${pTime} ${pVol} ${pOI} ${pChg}\n`;
@@ -201,8 +205,8 @@ async function runScan() {
     }
 }
 
-// Helper: Smart Short Volume (Max ~5 chars)
-function formatShort(num) {
+// Helper: Ultra Short (Max 4 chars) - 10M, 999K, 1.2B
+function formatShortMobile(num) {
     if (!num) return '0';
     let val, suffix;
 
@@ -216,19 +220,21 @@ function formatShort(num) {
         val = num / 1000;
         suffix = 'K';
     } else {
-        return num.toFixed(0); // < 1000, 4 chars max
+        return num.toFixed(0).substring(0, 4);
     }
 
-    // Try 2 decimals
-    let res = val.toFixed(2) + suffix;
-    if (res.length <= 5) return res;
+    // Max 4 chars total.
+    // 10.1M (5) -> 4 chars.
+    // If val >= 10, no decimals. (10M).
+    // If val < 10, 1 decimal. (9.5M).
 
-    // Try 1 decimal
-    res = val.toFixed(1) + suffix;
-    if (res.length <= 5) return res;
-
-    // Try 0 decimals
-    return val.toFixed(0) + suffix;
+    if (val >= 10) {
+        return Math.round(val) + suffix;
+    } else {
+        let res = val.toFixed(1) + suffix;
+        if (res.length > 4) return Math.round(val) + suffix; // Fallback to int
+        return res;
+    }
 }
 
 // Helper: Time Calculation
